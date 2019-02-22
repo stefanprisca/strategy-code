@@ -75,7 +75,7 @@ func containsString(l []string, x string) bool {
 
 func (gc *GameContract) parseMoveArgs(args []string) (moveArgs, error) {
 	if len(args) != 2 {
-		errMsg := fmt.Sprintf("Wrong number of arguments!. Expected 2, got %i", len(args))
+		errMsg := fmt.Sprintf("Wrong number of arguments!. Expected 2, got %d", len(args))
 		return moveArgs{}, errors.New(errMsg)
 	}
 
