@@ -37,8 +37,7 @@ func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
 			p := Position{id, Empty}
 			st, err := json.Marshal(p)
 			if err != nil {
-				fmt.Errorf("Could not marshal position: %s", err.Error())
-				return shim.Error(err.Error())
+				return shim.Error(fmt.Sprintf("Could not marshal position: %s", err.Error()))
 			}
 			APIstub.PutState(id, st)
 			gc.Positions[i*3+j] = id
@@ -53,7 +52,6 @@ func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) sc.Response 
 	function, args := APIstub.GetFunctionAndParameters()
 	if function != MoveTransaction {
 		errMsg := fmt.Sprintf("Unkown transaction name: %s", function)
-		fmt.Errorf(errMsg)
 		return shim.Error(errMsg)
 	}
 
