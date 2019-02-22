@@ -1,4 +1,4 @@
-package tictactoe
+package main
 
 import (
 	"encoding/json"
@@ -93,12 +93,12 @@ func (gc *GameContract) parseMoveArgs(args []string) (moveArgs, error) {
 }
 
 func (gc *GameContract) apply(APIstub shim.ChaincodeStubInterface, moveArgs moveArgs) (bool, error) {
-	p, err := GetPosition(APIstub, moveArgs.pId)
+	p, err := getPosition(APIstub, moveArgs.pId)
 	if err != nil {
 		return false, err
 	}
 
-	posF := ToTerm(p)
+	posF := toTerm(p)
 	if !posF(moveArgs.m) {
 		return false, fmt.Errorf("Position %s is taken", moveArgs.pId)
 	}
@@ -136,11 +136,11 @@ func (gc *GameContract) move(APIstub shim.ChaincodeStubInterface, args []string)
 	return shim.Error("Something went wrong, try again.")
 }
 
-func ToTerm(p Position) posFunc {
+func toTerm(p Position) posFunc {
 	return func(m string) bool { return p.Mark == Empty }
 }
 
-func GetPosition(APIstub shim.ChaincodeStubInterface, pId string) (Position, error) {
+func getPosition(APIstub shim.ChaincodeStubInterface, pId string) (Position, error) {
 	data, err := APIstub.GetState(pId)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to get position from stub for pId < %s >, error: < %s >", pId, err.Error())
@@ -154,4 +154,14 @@ func GetPosition(APIstub shim.ChaincodeStubInterface, pId string) (Position, err
 		return p, errors.New(errMsg)
 	}
 	return p, nil
+}
+
+// The main function is only relevant in unit test mode. Only included here for completeness.
+func main() {
+
+	// Create a new Smart Contract
+	err := shim.Start(new(GameContract))
+	if err != nil {
+		fmt.Printf("Error creating new Smart Contract: %s", err)
+	}
 }

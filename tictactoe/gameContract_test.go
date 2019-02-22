@@ -1,4 +1,4 @@
-package tictactoe
+package main
 
 import (
 	"testing"
@@ -6,14 +6,13 @@ import (
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 
 	"github.com/stefanprisca/strategy-code/tests/utils"
-	"github.com/stefanprisca/strategy-code/tictactoe"
 )
 
 func TestInit(t *testing.T) {
 	st := make(map[string][]byte)
 	stub := utils.TestCCStub{State: st}
 
-	gc := tictactoe.GameContract{}
+	gc := GameContract{}
 	r := gc.Init(stub)
 	if r.GetStatus() != shim.OK {
 		t.Logf("Initializing was not succesfull.")
@@ -21,19 +20,19 @@ func TestInit(t *testing.T) {
 	}
 
 	for _, pId := range gc.Positions {
-		p, err := tictactoe.GetPosition(stub, pId)
+		p, err := getPosition(stub, pId)
 		if err != nil {
 			t.Logf("Failed to retrieve position < %s > with error: %s", pId, err.Error())
 			t.FailNow()
 		}
 
-		if p.Mark != tictactoe.Empty {
-			t.Logf("Unexpected postion mark: < %s >. Expected < %s >.", p.Mark, tictactoe.Empty)
+		if p.Mark != Empty {
+			t.Logf("Unexpected postion mark: < %s >. Expected < %s >.", p.Mark, Empty)
 			t.FailNow()
 		}
 
-		pTerm := tictactoe.ToTerm(p)
-		if !(pTerm(tictactoe.X) && pTerm(tictactoe.O)) {
+		pTerm := toTerm(p)
+		if !(pTerm(X) && pTerm(O)) {
 			t.Logf("Position < %s > not open.", pId)
 		}
 	}
@@ -43,11 +42,11 @@ func TestInvokeMove(t *testing.T) {
 	st := make(map[string][]byte)
 	stub := utils.TestCCStub{State: st}
 
-	gc := tictactoe.GameContract{}
+	gc := GameContract{}
 	gc.Init(stub)
 
 	pId := "11"
-	m := tictactoe.X
+	m := X
 
 	stub.SetFunctionAndParameters("move", pId, m)
 	r := gc.Invoke(stub)
@@ -56,7 +55,7 @@ func TestInvokeMove(t *testing.T) {
 		t.FailNow()
 	}
 
-	p, err := tictactoe.GetPosition(stub, pId)
+	p, err := getPosition(stub, pId)
 	if err != nil {
 		t.Logf("Failed to retrieve position < %s > with error: %s", pId, err.Error())
 		t.FailNow()
@@ -72,16 +71,16 @@ func TestInvokeMoveOnOccupiedPos(t *testing.T) {
 	st := make(map[string][]byte)
 	stub := utils.TestCCStub{State: st}
 
-	gc := tictactoe.GameContract{}
+	gc := GameContract{}
 	gc.Init(stub)
 
 	pId := "11"
-	m := tictactoe.X
+	m := X
 
 	stub.SetFunctionAndParameters("move", pId, m)
 	gc.Invoke(stub)
 
-	m2 := tictactoe.O
+	m2 := O
 	stub.SetFunctionAndParameters("move", pId, m2)
 
 	r := gc.Invoke(stub)
@@ -90,7 +89,7 @@ func TestInvokeMoveOnOccupiedPos(t *testing.T) {
 		t.FailNow()
 	}
 
-	p, err := tictactoe.GetPosition(stub, pId)
+	p, err := getPosition(stub, pId)
 	if err != nil {
 		t.Logf("Failed to retrieve position < %s > with error: %s", pId, err.Error())
 		t.FailNow()
