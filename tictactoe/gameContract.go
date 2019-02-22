@@ -1,4 +1,4 @@
-package main
+package tictactoe
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 const MoveTransaction = "move"
 
 type GameContract struct {
-	positions []string
+	Positions []string
 }
 
 const (
@@ -28,12 +28,8 @@ type Position struct {
 
 type posFunc func(m string) bool
 
-func toTerm(p Position) posFunc {
-	return func(m string) bool { return m == p.Mark }
-}
-
 func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
-	gc.positions = make([]string, 9)
+	gc.Positions = make([]string, 9)
 	positions := []string{"1", "2", "3"}
 	for i, p1 := range positions {
 		for j, p2 := range positions {
@@ -45,11 +41,11 @@ func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
 				return shim.Error(err.Error())
 			}
 			APIstub.PutState(id, st)
-			gc.positions[i*3+j] = id
+			gc.Positions[i*3+j] = id
 		}
 	}
 
-	return shim.Success(nil)
+	return shim.Success([]byte("Succesfully initialized the GameBoard for tictactoe"))
 }
 
 func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) sc.Response {
@@ -84,8 +80,8 @@ func (gc *GameContract) parseMoveArgs(args []string) (moveArgs, error) {
 	}
 
 	posId := args[0]
-	if !containsString(gc.positions, posId) {
-		errMsg := fmt.Sprintf("Unkown position %s, expected one of %v", posId, gc.positions)
+	if !containsString(gc.Positions, posId) {
+		errMsg := fmt.Sprintf("Unkown position %s, expected one of %v", posId, gc.Positions)
 		return moveArgs{}, errors.New(errMsg)
 	}
 
@@ -95,27 +91,26 @@ func (gc *GameContract) parseMoveArgs(args []string) (moveArgs, error) {
 		return moveArgs{}, errors.New(errMsg)
 	}
 
-	return moveArgs{posId, mark}, nil
+	return moveArgs{pId: posId, m: mark}, nil
 }
 
 func (gc *GameContract) apply(APIstub shim.ChaincodeStubInterface, moveArgs moveArgs) (bool, error) {
-	data, err := APIstub.GetState(moveArgs.pId)
+	p, err := GetPosition(APIstub, moveArgs.pId)
 	if err != nil {
 		return false, err
 	}
 
-	p := Position{}
-	err = json.Unmarshal(data, &p)
-	if err != nil {
-		return false, err
-	}
-
-	posF := toTerm(p)
+	posF := ToTerm(p)
 	if !posF(moveArgs.m) {
-		return false, nil
+		return false, fmt.Errorf("Position %s is taken", moveArgs.pId)
 	}
 
-	err = APIstub.PutState(moveArgs.pId, []byte(moveArgs.m))
+	newPos := Position{ID: moveArgs.pId, Mark: moveArgs.m}
+	st, err := json.Marshal(newPos)
+	if err != nil {
+		return false, fmt.Errorf("Could not marshal position: %s", err.Error())
+	}
+	err = APIstub.PutState(moveArgs.pId, st)
 
 	return true, err
 }
@@ -143,12 +138,22 @@ func (gc *GameContract) move(APIstub shim.ChaincodeStubInterface, args []string)
 	return shim.Error("Something went wrong, try again.")
 }
 
-// The main function is only relevant in unit test mode. Only included here for completeness.
-func main() {
+func ToTerm(p Position) posFunc {
+	return func(m string) bool { return p.Mark == Empty }
+}
 
-	// Create a new Smart Contract
-	err := shim.Start(new(GameContract))
+func GetPosition(APIstub shim.ChaincodeStubInterface, pId string) (Position, error) {
+	data, err := APIstub.GetState(pId)
 	if err != nil {
-		fmt.Printf("Error creating new Smart Contract: %s", err)
+		errMsg := fmt.Sprintf("Failed to get position from stub for pId < %s >, error: < %s >", pId, err.Error())
+		return Position{}, errors.New(errMsg)
 	}
+
+	p := Position{}
+	err = json.Unmarshal(data, &p)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to unmarshal position for pId < %s >, error: < %s >, raw data: >> %v <<", pId, err.Error(), data)
+		return p, errors.New(errMsg)
+	}
+	return p, nil
 }
