@@ -19,10 +19,10 @@ func TestInit(t *testing.T) {
 		t.FailNow()
 	}
 
-	for _, pId := range gc.Positions {
-		p, err := getPosition(stub, pId)
+	for _, pID := range []string{"11", "12", "13", "21", "22", "23", "31", "32", "33"} {
+		p, err := getPosition(stub, pID)
 		if err != nil {
-			t.Logf("Failed to retrieve position < %s > with error: %s", pId, err.Error())
+			t.Logf("Failed to retrieve position < %s > with error: %s", pID, err.Error())
 			t.FailNow()
 		}
 
@@ -33,7 +33,7 @@ func TestInit(t *testing.T) {
 
 		pTerm := toTerm(p)
 		if !(pTerm(X) && pTerm(O)) {
-			t.Logf("Position < %s > not open.", pId)
+			t.Logf("Position < %s > not open.", pID)
 		}
 	}
 }
@@ -45,19 +45,19 @@ func TestInvokeMove(t *testing.T) {
 	gc := GameContract{}
 	gc.Init(stub)
 
-	pId := "11"
+	pID := "11"
 	m := X
 
-	stub.SetFunctionAndParameters("move", pId, m)
+	stub.SetFunctionAndParameters("move", pID, m)
 	r := gc.Invoke(stub)
 	if r.GetStatus() != shim.OK {
 		t.Logf("Could not invoke move function, error: %s", r.GetMessage())
 		t.FailNow()
 	}
 
-	p, err := getPosition(stub, pId)
+	p, err := getPosition(stub, pID)
 	if err != nil {
-		t.Logf("Failed to retrieve position < %s > with error: %s", pId, err.Error())
+		t.Logf("Failed to retrieve position < %s > with error: %s", pID, err.Error())
 		t.FailNow()
 	}
 
@@ -74,14 +74,14 @@ func TestInvokeMoveOnOccupiedPos(t *testing.T) {
 	gc := GameContract{}
 	gc.Init(stub)
 
-	pId := "11"
+	pID := "11"
 	m := X
 
-	stub.SetFunctionAndParameters("move", pId, m)
+	stub.SetFunctionAndParameters("move", pID, m)
 	gc.Invoke(stub)
 
 	m2 := O
-	stub.SetFunctionAndParameters("move", pId, m2)
+	stub.SetFunctionAndParameters("move", pID, m2)
 
 	r := gc.Invoke(stub)
 	if r.GetStatus() != shim.ERROR {
@@ -89,9 +89,9 @@ func TestInvokeMoveOnOccupiedPos(t *testing.T) {
 		t.FailNow()
 	}
 
-	p, err := getPosition(stub, pId)
+	p, err := getPosition(stub, pID)
 	if err != nil {
-		t.Logf("Failed to retrieve position < %s > with error: %s", pId, err.Error())
+		t.Logf("Failed to retrieve position < %s > with error: %s", pID, err.Error())
 		t.FailNow()
 	}
 

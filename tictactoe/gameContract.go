@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	sc "github.com/hyperledger/fabric/protos/peer"
@@ -12,7 +13,6 @@ import (
 const MoveTransaction = "move"
 
 type GameContract struct {
-	Positions []string
 }
 
 const (
@@ -29,10 +29,9 @@ type Position struct {
 type posFunc func(m string) bool
 
 func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
-	gc.Positions = make([]string, 9)
 	positions := []string{"1", "2", "3"}
-	for i, p1 := range positions {
-		for j, p2 := range positions {
+	for _, p1 := range positions {
+		for _, p2 := range positions {
 			id := p1 + p2
 			p := Position{id, Empty}
 			st, err := json.Marshal(p)
@@ -40,7 +39,6 @@ func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
 				return shim.Error(fmt.Sprintf("Could not marshal position: %s", err.Error()))
 			}
 			APIstub.PutState(id, st)
-			gc.Positions[i*3+j] = id
 		}
 	}
 
@@ -63,13 +61,8 @@ type moveArgs struct {
 	pId string
 }
 
-func containsString(l []string, x string) bool {
-	found := false
-	for _, y := range l {
-		found = found || x == y
-	}
-	return found
-}
+var positionRegexp = regexp.MustCompile(`[1|2|3][1|2|3]`)
+var markRegexp = regexp.MustCompile(fmt.Sprintf("[%s|%s]", X, O))
 
 func (gc *GameContract) parseMoveArgs(args []string) (moveArgs, error) {
 	if len(args) != 2 {
@@ -77,19 +70,19 @@ func (gc *GameContract) parseMoveArgs(args []string) (moveArgs, error) {
 		return moveArgs{}, errors.New(errMsg)
 	}
 
-	posId := args[0]
-	if !containsString(gc.Positions, posId) {
-		errMsg := fmt.Sprintf("Unkown position %s, expected one of %v", posId, gc.Positions)
+	posID := args[0]
+	if !positionRegexp.MatchString(posID) {
+		errMsg := fmt.Sprintf("Unkown position %s, must match regular expression <%s>", posID, positionRegexp.String())
 		return moveArgs{}, errors.New(errMsg)
 	}
 
 	mark := args[1]
-	if mark != X && mark != O && mark != Empty {
-		errMsg := fmt.Sprintf("Unkown mark %s, expected one of [%s, %s, %s]", posId, X, O, Empty)
+	if !markRegexp.MatchString(mark) {
+		errMsg := fmt.Sprintf("Unkown mark %s, must match regular expression <%s>", mark, markRegexp.String())
 		return moveArgs{}, errors.New(errMsg)
 	}
 
-	return moveArgs{pId: posId, m: mark}, nil
+	return moveArgs{pId: posID, m: mark}, nil
 }
 
 func (gc *GameContract) apply(APIstub shim.ChaincodeStubInterface, moveArgs moveArgs) (bool, error) {
@@ -99,7 +92,7 @@ func (gc *GameContract) apply(APIstub shim.ChaincodeStubInterface, moveArgs move
 	}
 
 	posF := toTerm(p)
-	if !posF(moveArgs.m) {
+	if !posF(Empty) {
 		return false, fmt.Errorf("Position %s is taken", moveArgs.pId)
 	}
 
@@ -137,7 +130,7 @@ func (gc *GameContract) move(APIstub shim.ChaincodeStubInterface, args []string)
 }
 
 func toTerm(p Position) posFunc {
-	return func(m string) bool { return p.Mark == Empty }
+	return func(m string) bool { return p.Mark == m }
 }
 
 func getPosition(APIstub shim.ChaincodeStubInterface, pId string) (Position, error) {
