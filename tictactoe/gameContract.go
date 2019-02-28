@@ -1,152 +1,155 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.com/hyperledger/fabric/core/chaincode/shim"
-	sc "github.com/hyperledger/fabric/protos/peer"
+	pb "github.com/hyperledger/fabric/protos/peer"
+	tttPb "github.com/stefanprisca/strategy-protobufs/tictactoe"
 )
 
-const MoveTransaction = "move"
-
+// Dummy struct for hyperledger
 type GameContract struct {
 }
 
-const (
-	X     string = "X"
-	O     string = "O"
-	Empty string = "Empty"
-)
+const CONTRACT_STATE_KEY = "contract.tictactoe"
 
-type Position struct {
-	ID   string `json:"id"`
-	Mark string `json:"mark"`
-}
-
-type posFunc func(m string) bool
-
-func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
-	positions := []string{"1", "2", "3"}
-	for _, p1 := range positions {
-		for _, p2 := range positions {
-			id := p1 + p2
-			p := Position{id, Empty}
-			st, err := json.Marshal(p)
-			if err != nil {
-				return shim.Error(fmt.Sprintf("Could not marshal position: %s", err.Error()))
-			}
-			APIstub.PutState(id, st)
-		}
+func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) pb.Response {
+	positions := make([]tttPb.Mark, 9)
+	for i := 0; i < 9; i++ {
+		positions[i] = tttPb.Mark_E
 	}
 
-	return shim.Success([]byte("Succesfully initialized the GameBoard for tictactoe"))
+	tttContract := &tttPb.TttContract{
+		Status:    tttPb.TttContract_XTURN,
+		Positions: positions,
+		XPlayer:   "player1",
+		OPlayer:   "player2",
+	}
+
+	tttState, err := proto.Marshal(tttContract)
+	if err != nil {
+		errMsg := fmt.Sprintf("Could not marshal the contract. Error: %s", err.Error())
+		return shim.Error(errMsg)
+	}
+	APIstub.PutState(CONTRACT_STATE_KEY, tttState)
+	return shim.Success(tttState)
 }
 
-func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) sc.Response {
-	// Retrieve the requested Smart Contract function and arguments
-	function, args := APIstub.GetFunctionAndParameters()
-	if function != MoveTransaction {
-		errMsg := fmt.Sprintf("Unkown transaction name: %s", function)
+func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response {
+	creator, errc := APIstub.GetCreator()
+	if errc == nil {
+		fmt.Println("Creator: ", string(creator))
+	}
+
+	protoTrxArgs := APIstub.GetArgs()[0]
+
+	trxArgs := &tttPb.TrxArgs{}
+	err := proto.Unmarshal(protoTrxArgs, trxArgs)
+	if err != nil {
+		errMsg := fmt.Sprintf("Could not parse transaction args. Error %s", err.Error())
 		return shim.Error(errMsg)
 	}
 
-	return gc.move(APIstub, args)
+	switch trxArgs.Type {
+	case tttPb.TrxType_MOVE:
+		return move(APIstub, trxArgs.MovePayload)
+	}
+
+	return shim.Error(fmt.Sprintf("Unkown transaction type < %v >", trxArgs.Type))
 }
 
-type moveArgs struct {
-	m   string
-	pId string
+func move(APIstub shim.ChaincodeStubInterface, payload *tttPb.MoveTrxPayload) pb.Response {
+	if payload == nil {
+		return shim.Error("Unexpected empty payload. Failed to do move.")
+	}
+
+	contract, err := getLedgerContract(APIstub)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	if err = validateMoveArgs(APIstub, *contract, *payload); err != nil {
+		return shim.Error(err.Error())
+	}
+
+	newContract := applyMove(*contract, *payload)
+	newProtoContract, err := proto.Marshal(&newContract)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	err = APIstub.PutState(CONTRACT_STATE_KEY, newProtoContract)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	return shim.Success(newProtoContract)
 }
 
-var positionRegexp = regexp.MustCompile(`[1|2|3][1|2|3]`)
-var markRegexp = regexp.MustCompile(fmt.Sprintf("[%s|%s]", X, O))
+var positionRegexp = regexp.MustCompile(fmt.Sprintf("^[1-9]%v$", tttPb.Mark_E))
 
-func (gc *GameContract) parseMoveArgs(args []string) (moveArgs, error) {
-	if len(args) != 2 {
-		errMsg := fmt.Sprintf("Wrong number of arguments!. Expected 2, got %d", len(args))
-		return moveArgs{}, errors.New(errMsg)
-	}
-
-	posID := args[0]
-	if !positionRegexp.MatchString(posID) {
-		errMsg := fmt.Sprintf("Unkown position %s, must match regular expression <%s>", posID, positionRegexp.String())
-		return moveArgs{}, errors.New(errMsg)
-	}
-
-	mark := args[1]
-	if !markRegexp.MatchString(mark) {
-		errMsg := fmt.Sprintf("Unkown mark %s, must match regular expression <%s>", mark, markRegexp.String())
-		return moveArgs{}, errors.New(errMsg)
-	}
-
-	return moveArgs{pId: posID, m: mark}, nil
+func positionValidationString(position int32, mark tttPb.Mark) string {
+	return fmt.Sprintf("%d%v", position, mark)
 }
 
-func (gc *GameContract) apply(APIstub shim.ChaincodeStubInterface, moveArgs moveArgs) (bool, error) {
-	p, err := getPosition(APIstub, moveArgs.pId)
-	if err != nil {
-		return false, err
-	}
+var turnRegexp = regexp.MustCompile(
+	fmt.Sprintf("^(%s|%s)$",
+		turnValidationString(tttPb.Mark_X, tttPb.TttContract_XTURN),
+		turnValidationString(tttPb.Mark_O, tttPb.TttContract_OTURN)))
 
-	posF := toTerm(p)
-	if !posF(Empty) {
-		return false, fmt.Errorf("Position %s is taken", moveArgs.pId)
-	}
-
-	newPos := Position{ID: moveArgs.pId, Mark: moveArgs.m}
-	st, err := json.Marshal(newPos)
-	if err != nil {
-		return false, fmt.Errorf("Could not marshal position: %s", err.Error())
-	}
-	err = APIstub.PutState(moveArgs.pId, st)
-
-	return true, err
+func turnValidationString(mark tttPb.Mark, status tttPb.TttContract_Status) string {
+	return fmt.Sprintf("%v%v", mark, status)
 }
 
-func (gc *GameContract) move(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
-	moveArgs, err := gc.parseMoveArgs(args)
-	if err != nil {
-		errMsg := fmt.Sprintf("Unable to parse arguments: %v, Parse error: %s", args, err.Error())
-		return shim.Error(errMsg)
+func validateMoveArgs(APIstub shim.ChaincodeStubInterface, contract tttPb.TttContract, payload tttPb.MoveTrxPayload) error {
+	pvs := positionValidationString(payload.Position,
+		contract.Positions[payload.Position])
+	if !positionRegexp.MatchString(pvs) {
+		return fmt.Errorf("Invalid position or position not empty. Position < %d >, mark < %v >",
+			payload.Position, contract.Positions[payload.Position])
 	}
 
-	success, err := gc.apply(APIstub, moveArgs)
-	if err != nil {
-		errMsg := fmt.Sprintf("Unable to apply move arguments: %v, Movement error: %s", args, err.Error())
-		return shim.Error(errMsg)
+	tvs := turnValidationString(payload.Mark, contract.Status)
+	if !turnRegexp.MatchString(tvs) {
+		return fmt.Errorf("Invalid turn. Got mark < %v >, expected < %v >", payload.Mark, contract.Status)
 	}
 
-	// # TODO # Implement the missing functionality
-	if success {
-		// Apply win function
-		// Marshal the game board
-		return shim.Success(nil)
-	}
-
-	return shim.Error("Something went wrong, try again.")
+	return nil
 }
 
-func toTerm(p Position) posFunc {
-	return func(m string) bool { return p.Mark == m }
+func getLedgerContract(APIstub shim.ChaincodeStubInterface) (*tttPb.TttContract, error) {
+	contractBytes, err := APIstub.GetState(CONTRACT_STATE_KEY)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get the contract from state. Error: %s", err.Error())
+	}
+
+	actualContract := &tttPb.TttContract{}
+	err = proto.Unmarshal(contractBytes, actualContract)
+	if err != nil {
+		return nil, fmt.Errorf("Could not unmarshal the proto contract. Error: %s", err.Error())
+	}
+	return actualContract, nil
 }
 
-func getPosition(APIstub shim.ChaincodeStubInterface, pId string) (Position, error) {
-	data, err := APIstub.GetState(pId)
-	if err != nil {
-		errMsg := fmt.Sprintf("Failed to get position from stub for pId < %s >, error: < %s >", pId, err.Error())
-		return Position{}, errors.New(errMsg)
+func applyMove(contract tttPb.TttContract, payload tttPb.MoveTrxPayload) tttPb.TttContract {
+	newPositions := contract.Positions
+	newPositions[payload.Position] = payload.Mark
+	nextStatus := computeNextStatus(newPositions, contract.Status)
+	return tttPb.TttContract{
+		Positions: newPositions,
+		Status:    nextStatus,
+		XPlayer:   contract.XPlayer,
+		OPlayer:   contract.OPlayer,
 	}
+}
 
-	p := Position{}
-	err = json.Unmarshal(data, &p)
-	if err != nil {
-		errMsg := fmt.Sprintf("Failed to unmarshal position for pId < %s >, error: < %s >, raw data: >> %v <<", pId, err.Error(), data)
-		return p, errors.New(errMsg)
-	}
-	return p, nil
+func computeNextStatus(positions []tttPb.Mark, status tttPb.TttContract_Status) tttPb.TttContract_Status {
+	// TODO: apply win functions
+	return tttPb.TttContract_OTURN
 }
 
 // The main function is only relevant in unit test mode. Only included here for completeness.
