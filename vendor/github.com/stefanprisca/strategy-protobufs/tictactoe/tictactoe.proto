@@ -1,0 +1,49 @@
+syntax="proto3";
+package tictactoe;
+
+import "google/protobuf/timestamp.proto";
+
+enum Mark {
+    X = 0;
+    O = 1;
+    E = 2;
+}
+
+message TttContract{
+    
+    enum Status {
+        XTURN = 0;
+        OTURN = 1;
+        XWON = 2;
+        OWON = 3;
+        TIE = 4;
+    }
+
+    repeated Mark positions = 1;
+    Status status = 2;
+    string x_player = 3;
+    string o_player = 4;
+
+    google.protobuf.Timestamp last_updated = 9;
+}
+
+message InitTrxArgs {
+    Mark player1_mark = 1;
+    Mark player2_mark = 2;
+}
+
+enum TrxType{
+    MOVE = 0;
+}
+
+message TrxArgs{
+    TrxType type = 1;
+    MoveTrxPayload movePayload = 2;
+    
+    google.protobuf.Timestamp last_updated = 9;
+}
+
+message MoveTrxPayload {
+    int32 position = 1;
+    Mark mark = 2;
+}
