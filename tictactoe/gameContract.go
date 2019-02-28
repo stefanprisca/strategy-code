@@ -1,14 +1,13 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 
 	"github.com/golang/protobuf/proto"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
-	sc "github.com/hyperledger/fabric/protos/peer"
+	pb "github.com/hyperledger/fabric/protos/peer"
 	tttPb "github.com/stefanprisca/strategy-protobufs/tictactoe"
 )
 
@@ -18,20 +17,7 @@ type GameContract struct {
 
 const CONTRACT_STATE_KEY = "contract.tictactoe"
 
-func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
-	args, err := APIstub.GetArgsSlice()
-	if err != nil {
-		errMsg := fmt.Sprintf("Could not get the input arguments. Error: %s", err.Error())
-		return shim.Error(errMsg)
-	}
-
-	initTrxArgs := &tttPb.InitTrxArgs{}
-	err = proto.Unmarshal(args, initTrxArgs)
-	if err != nil {
-		errMsg := fmt.Sprintf("Could not unmarshal the input arguments. Error: %s", err.Error())
-		return shim.Error(errMsg)
-	}
-
+func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) pb.Response {
 	positions := make([]tttPb.Mark, 9)
 	for i := 0; i < 9; i++ {
 		positions[i] = tttPb.Mark_E
@@ -53,43 +39,117 @@ func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
 	return shim.Success(tttState)
 }
 
-func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) sc.Response {
-	// Retrieve the requested Smart Contract function and arguments
-	_, err := APIstub.GetArgsSlice()
+func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response {
+	creator, errc := APIstub.GetCreator()
+	if errc == nil {
+		fmt.Println("Creator: ", string(creator))
+	}
+
+	protoTrxArgs := APIstub.GetArgs()[0]
+
+	trxArgs := &tttPb.TrxArgs{}
+	err := proto.Unmarshal(protoTrxArgs, trxArgs)
 	if err != nil {
-		errMsg := fmt.Sprintf("Could not get the input arguments. Error: %s", err.Error())
+		errMsg := fmt.Sprintf("Could not parse transaction args. Error %s", err.Error())
 		return shim.Error(errMsg)
 	}
-	return shim.Success(nil)
+
+	switch trxArgs.Type {
+	case tttPb.TrxType_MOVE:
+		return move(APIstub, trxArgs.MovePayload)
+	}
+
+	return shim.Error(fmt.Sprintf("Unkown transaction type < %v >", trxArgs.Type))
 }
 
-type moveArgs struct {
-	m   string
-	pId string
+func move(APIstub shim.ChaincodeStubInterface, payload *tttPb.MoveTrxPayload) pb.Response {
+	if payload == nil {
+		return shim.Error("Unexpected empty payload. Failed to do move.")
+	}
+
+	contract, err := getLedgerContract(APIstub)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	if err = validateMoveArgs(APIstub, *contract, *payload); err != nil {
+		return shim.Error(err.Error())
+	}
+
+	newContract := applyMove(*contract, *payload)
+	newProtoContract, err := proto.Marshal(&newContract)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	err = APIstub.PutState(CONTRACT_STATE_KEY, newProtoContract)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	return shim.Success(newProtoContract)
 }
 
-var positionRegexp = regexp.MustCompile(`[1|2|3][1|2|3]`)
-var markRegexp = regexp.MustCompile(fmt.Sprintf("[%s|%s]", tttPb.Mark_X.String(), tttPb.Mark_O.String()))
+var positionRegexp = regexp.MustCompile(fmt.Sprintf("^[1-9]%v$", tttPb.Mark_E))
 
-func (gc *GameContract) parseMoveArgs(args []string) (moveArgs, error) {
-	if len(args) != 2 {
-		errMsg := fmt.Sprintf("Wrong number of arguments!. Expected 2, got %d", len(args))
-		return moveArgs{}, errors.New(errMsg)
+func positionValidationString(position int32, mark tttPb.Mark) string {
+	return fmt.Sprintf("%d%v", position, mark)
+}
+
+var turnRegexp = regexp.MustCompile(
+	fmt.Sprintf("^(%s|%s)$",
+		turnValidationString(tttPb.Mark_X, tttPb.TttContract_XTURN),
+		turnValidationString(tttPb.Mark_O, tttPb.TttContract_OTURN)))
+
+func turnValidationString(mark tttPb.Mark, status tttPb.TttContract_Status) string {
+	return fmt.Sprintf("%v%v", mark, status)
+}
+
+func validateMoveArgs(APIstub shim.ChaincodeStubInterface, contract tttPb.TttContract, payload tttPb.MoveTrxPayload) error {
+	pvs := positionValidationString(payload.Position,
+		contract.Positions[payload.Position])
+	if !positionRegexp.MatchString(pvs) {
+		return fmt.Errorf("Invalid position or position not empty. Position < %d >, mark < %v >",
+			payload.Position, contract.Positions[payload.Position])
 	}
 
-	posID := args[0]
-	if !positionRegexp.MatchString(posID) {
-		errMsg := fmt.Sprintf("Unkown position %s, must match regular expression <%s>", posID, positionRegexp.String())
-		return moveArgs{}, errors.New(errMsg)
+	tvs := turnValidationString(payload.Mark, contract.Status)
+	if !turnRegexp.MatchString(tvs) {
+		return fmt.Errorf("Invalid turn. Got mark < %v >, expected < %v >", payload.Mark, contract.Status)
 	}
 
-	mark := args[1]
-	if !markRegexp.MatchString(mark) {
-		errMsg := fmt.Sprintf("Unkown mark %s, must match regular expression <%s>", mark, markRegexp.String())
-		return moveArgs{}, errors.New(errMsg)
+	return nil
+}
+
+func getLedgerContract(APIstub shim.ChaincodeStubInterface) (*tttPb.TttContract, error) {
+	contractBytes, err := APIstub.GetState(CONTRACT_STATE_KEY)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get the contract from state. Error: %s", err.Error())
 	}
 
-	return moveArgs{pId: posID, m: mark}, nil
+	actualContract := &tttPb.TttContract{}
+	err = proto.Unmarshal(contractBytes, actualContract)
+	if err != nil {
+		return nil, fmt.Errorf("Could not unmarshal the proto contract. Error: %s", err.Error())
+	}
+	return actualContract, nil
+}
+
+func applyMove(contract tttPb.TttContract, payload tttPb.MoveTrxPayload) tttPb.TttContract {
+	newPositions := contract.Positions
+	newPositions[payload.Position] = payload.Mark
+	nextStatus := computeNextStatus(newPositions, contract.Status)
+	return tttPb.TttContract{
+		Positions: newPositions,
+		Status:    nextStatus,
+		XPlayer:   contract.XPlayer,
+		OPlayer:   contract.OPlayer,
+	}
+}
+
+func computeNextStatus(positions []tttPb.Mark, status tttPb.TttContract_Status) tttPb.TttContract_Status {
+	// TODO: apply win functions
+	return tttPb.TttContract_OTURN
 }
 
 // The main function is only relevant in unit test mode. Only included here for completeness.
