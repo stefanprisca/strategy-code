@@ -9,6 +9,12 @@
 			"revisionTime": "2019-02-05T22:20:52Z"
 		},
 		{
+			"checksumSHA1": "seEwY2xETpK9yHJ9+bHqkLZ0VMU=",
+			"path": "github.com/golang/protobuf/ptypes/timestamp",
+			"revision": "c823c79ea1570fb5ff454033735a8e68575d1d0f",
+			"revisionTime": "2019-02-05T22:20:52Z"
+		},
+		{
 			"checksumSHA1": "bBOLwgIZ4YOrjGEP4Wn66eu2i8M=",
 			"path": "github.com/stefanprisca/strategy-protobufs/tictactoe",
 			"revision": "3d3c14b5b3cab80402c86f337ae70c46f5c68641",
