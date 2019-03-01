@@ -203,13 +203,13 @@ func matchAny(m tttPb.Mark, posString string) bool {
 
 func TestGameScriptWinX(t *testing.T) {
 	script := []tttPb.MoveTrxPayload{
-		tttPb.MoveTrxPayload{Position: 0, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 1, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 4, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 8, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 3, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 5, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 6, Mark: tttPb.Mark_X},
+		{Position: 0, Mark: tttPb.Mark_X},
+		{Position: 1, Mark: tttPb.Mark_O},
+		{Position: 4, Mark: tttPb.Mark_X},
+		{Position: 8, Mark: tttPb.Mark_O},
+		{Position: 3, Mark: tttPb.Mark_X},
+		{Position: 5, Mark: tttPb.Mark_O},
+		{Position: 6, Mark: tttPb.Mark_X},
 	}
 	stub := initContract(t)
 	_, err := runScriptAndCheckLastState(script, tttPb.TttContract_XWON, stub)
@@ -220,14 +220,14 @@ func TestGameScriptWinX(t *testing.T) {
 
 func TestGameScriptWinO(t *testing.T) {
 	script := []tttPb.MoveTrxPayload{
-		tttPb.MoveTrxPayload{Position: 0, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 1, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 4, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 8, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 3, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 5, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 7, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 2, Mark: tttPb.Mark_O},
+		{Position: 0, Mark: tttPb.Mark_X},
+		{Position: 1, Mark: tttPb.Mark_O},
+		{Position: 4, Mark: tttPb.Mark_X},
+		{Position: 8, Mark: tttPb.Mark_O},
+		{Position: 3, Mark: tttPb.Mark_X},
+		{Position: 5, Mark: tttPb.Mark_O},
+		{Position: 7, Mark: tttPb.Mark_X},
+		{Position: 2, Mark: tttPb.Mark_O},
 	}
 	stub := initContract(t)
 	_, err := runScriptAndCheckLastState(script, tttPb.TttContract_OWON, stub)
@@ -238,15 +238,15 @@ func TestGameScriptWinO(t *testing.T) {
 
 func TestGameScriptTie(t *testing.T) {
 	script := []tttPb.MoveTrxPayload{
-		tttPb.MoveTrxPayload{Position: 0, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 1, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 4, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 8, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 3, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 5, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 7, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 6, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 2, Mark: tttPb.Mark_X},
+		{Position: 0, Mark: tttPb.Mark_X},
+		{Position: 1, Mark: tttPb.Mark_O},
+		{Position: 4, Mark: tttPb.Mark_X},
+		{Position: 8, Mark: tttPb.Mark_O},
+		{Position: 3, Mark: tttPb.Mark_X},
+		{Position: 5, Mark: tttPb.Mark_O},
+		{Position: 7, Mark: tttPb.Mark_X},
+		{Position: 6, Mark: tttPb.Mark_O},
+		{Position: 2, Mark: tttPb.Mark_X},
 	}
 	stub := initContract(t)
 	_, err := runScriptAndCheckLastState(script, tttPb.TttContract_TIE, stub)
@@ -257,9 +257,9 @@ func TestGameScriptTie(t *testing.T) {
 
 func TestGameScriptInvalidMoveXTurn(t *testing.T) {
 	script := []tttPb.MoveTrxPayload{
-		tttPb.MoveTrxPayload{Position: 0, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 1, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 8, Mark: tttPb.Mark_O},
+		{Position: 0, Mark: tttPb.Mark_X},
+		{Position: 1, Mark: tttPb.Mark_O},
+		{Position: 8, Mark: tttPb.Mark_O},
 	}
 	stub := initContract(t)
 	responses, err := runScriptAndCheckLastState(script, tttPb.TttContract_XTURN, stub)
@@ -276,14 +276,14 @@ func TestGameScriptInvalidMoveXTurn(t *testing.T) {
 
 func TestGameScriptInvalidMoveXWon(t *testing.T) {
 	script := []tttPb.MoveTrxPayload{
-		tttPb.MoveTrxPayload{Position: 0, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 1, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 4, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 8, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 3, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 5, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 6, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 2, Mark: tttPb.Mark_O},
+		{Position: 0, Mark: tttPb.Mark_X},
+		{Position: 1, Mark: tttPb.Mark_O},
+		{Position: 4, Mark: tttPb.Mark_X},
+		{Position: 8, Mark: tttPb.Mark_O},
+		{Position: 3, Mark: tttPb.Mark_X},
+		{Position: 5, Mark: tttPb.Mark_O},
+		{Position: 6, Mark: tttPb.Mark_X},
+		{Position: 2, Mark: tttPb.Mark_O},
 	}
 	stub := initContract(t)
 	responses, err := runScriptAndCheckLastState(script, tttPb.TttContract_XWON, stub)
@@ -300,16 +300,16 @@ func TestGameScriptInvalidMoveXWon(t *testing.T) {
 
 func TestGameScriptInvalidMoveTie(t *testing.T) {
 	script := []tttPb.MoveTrxPayload{
-		tttPb.MoveTrxPayload{Position: 0, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 1, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 4, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 8, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 3, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 5, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 7, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 6, Mark: tttPb.Mark_O},
-		tttPb.MoveTrxPayload{Position: 2, Mark: tttPb.Mark_X},
-		tttPb.MoveTrxPayload{Position: 2, Mark: tttPb.Mark_X},
+		{Position: 0, Mark: tttPb.Mark_X},
+		{Position: 1, Mark: tttPb.Mark_O},
+		{Position: 4, Mark: tttPb.Mark_X},
+		{Position: 8, Mark: tttPb.Mark_O},
+		{Position: 3, Mark: tttPb.Mark_X},
+		{Position: 5, Mark: tttPb.Mark_O},
+		{Position: 7, Mark: tttPb.Mark_X},
+		{Position: 6, Mark: tttPb.Mark_O},
+		{Position: 2, Mark: tttPb.Mark_X},
+		{Position: 2, Mark: tttPb.Mark_X},
 	}
 	stub := initContract(t)
 	responses, err := runScriptAndCheckLastState(script, tttPb.TttContract_XWON, stub)

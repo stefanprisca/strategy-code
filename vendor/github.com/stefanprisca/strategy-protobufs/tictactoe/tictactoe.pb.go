@@ -99,7 +99,7 @@ func (TttContract_State) EnumDescriptor() ([]byte, []int) {
 
 type TttContract struct {
 	Positions            []Mark               `protobuf:"varint,1,rep,packed,name=positions,proto3,enum=tictactoe.Mark" json:"positions,omitempty"`
-	State               TttContract_State   `protobuf:"varint,2,opt,name=state,proto3,enum=tictactoe.TttContract_State" json:"state,omitempty"`
+	State                TttContract_State    `protobuf:"varint,2,opt,name=state,proto3,enum=tictactoe.TttContract_State" json:"state,omitempty"`
 	XPlayer              string               `protobuf:"bytes,3,opt,name=x_player,json=xPlayer,proto3" json:"x_player,omitempty"`
 	OPlayer              string               `protobuf:"bytes,4,opt,name=o_player,json=oPlayer,proto3" json:"o_player,omitempty"`
 	LastUpdated          *timestamp.Timestamp `protobuf:"bytes,9,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
