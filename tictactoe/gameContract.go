@@ -16,15 +16,16 @@ type GameContract struct {
 }
 
 const CONTRACT_STATE_KEY = "contract.tictactoe"
+const BOARD_SIZE = 9
 
 func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) pb.Response {
-	positions := make([]tttPb.Mark, 9)
-	for i := 0; i < 9; i++ {
+	positions := make([]tttPb.Mark, BOARD_SIZE)
+	for i := 0; i < BOARD_SIZE; i++ {
 		positions[i] = tttPb.Mark_E
 	}
 
 	tttContract := &tttPb.TttContract{
-		Status:    tttPb.TttContract_XTURN,
+		State:     tttPb.TttContract_XTURN,
 		Positions: positions,
 		XPlayer:   "player1",
 		OPlayer:   "player2",
@@ -40,10 +41,10 @@ func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) pb.Response {
 }
 
 func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response {
-	creator, errc := APIstub.GetCreator()
-	if errc == nil {
-		fmt.Println("Creator: ", string(creator))
-	}
+	// creator, errc := APIstub.GetCreator()
+	// if errc == nil {
+	// 	fmt.Println("Creator: ", string(creator))
+	// }
 
 	protoTrxArgs := APIstub.GetArgs()[0]
 
@@ -72,11 +73,18 @@ func move(APIstub shim.ChaincodeStubInterface, payload *tttPb.MoveTrxPayload) pb
 		return shim.Error(err.Error())
 	}
 
+	if contractTerminated(*contract) {
+		return shim.Error(fmt.Sprintf("Contract already terminated with state %v", contract.State))
+	}
+
 	if err = validateMoveArgs(APIstub, *contract, *payload); err != nil {
 		return shim.Error(err.Error())
 	}
 
-	newContract := applyMove(*contract, *payload)
+	newContract, err := applyMove(*contract, *payload)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
 	newProtoContract, err := proto.Marshal(&newContract)
 	if err != nil {
 		return shim.Error(err.Error())
@@ -90,7 +98,16 @@ func move(APIstub shim.ChaincodeStubInterface, payload *tttPb.MoveTrxPayload) pb
 	return shim.Success(newProtoContract)
 }
 
-var positionRegexp = regexp.MustCompile(fmt.Sprintf("^[1-9]%v$", tttPb.Mark_E))
+var terminatedRegexp = regexp.MustCompile(
+	fmt.Sprintf("^%v|%v|%v$",
+		tttPb.TttContract_XWON, tttPb.TttContract_OWON, tttPb.TttContract_TIE))
+
+func contractTerminated(contract tttPb.TttContract) bool {
+	return terminatedRegexp.MatchString(
+		fmt.Sprintf("%v", contract.State))
+}
+
+var positionRegexp = regexp.MustCompile(fmt.Sprintf("^[0-8]%v$", tttPb.Mark_E))
 
 func positionValidationString(position int32, mark tttPb.Mark) string {
 	return fmt.Sprintf("%d%v", position, mark)
@@ -101,8 +118,8 @@ var turnRegexp = regexp.MustCompile(
 		turnValidationString(tttPb.Mark_X, tttPb.TttContract_XTURN),
 		turnValidationString(tttPb.Mark_O, tttPb.TttContract_OTURN)))
 
-func turnValidationString(mark tttPb.Mark, status tttPb.TttContract_Status) string {
-	return fmt.Sprintf("%v%v", mark, status)
+func turnValidationString(mark tttPb.Mark, state tttPb.TttContract_State) string {
+	return fmt.Sprintf("%v%v", mark, state)
 }
 
 func validateMoveArgs(APIstub shim.ChaincodeStubInterface, contract tttPb.TttContract, payload tttPb.MoveTrxPayload) error {
@@ -113,9 +130,9 @@ func validateMoveArgs(APIstub shim.ChaincodeStubInterface, contract tttPb.TttCon
 			payload.Position, contract.Positions[payload.Position])
 	}
 
-	tvs := turnValidationString(payload.Mark, contract.Status)
+	tvs := turnValidationString(payload.Mark, contract.State)
 	if !turnRegexp.MatchString(tvs) {
-		return fmt.Errorf("Invalid turn. Got mark < %v >, expected < %v >", payload.Mark, contract.Status)
+		return fmt.Errorf("Invalid turn. Got mark < %v >, expected < %v >", payload.Mark, contract.State)
 	}
 
 	return nil
@@ -135,21 +152,94 @@ func getLedgerContract(APIstub shim.ChaincodeStubInterface) (*tttPb.TttContract,
 	return actualContract, nil
 }
 
-func applyMove(contract tttPb.TttContract, payload tttPb.MoveTrxPayload) tttPb.TttContract {
+func applyMove(contract tttPb.TttContract, payload tttPb.MoveTrxPayload) (tttPb.TttContract, error) {
 	newPositions := contract.Positions
 	newPositions[payload.Position] = payload.Mark
-	nextStatus := computeNextStatus(newPositions, contract.Status)
+
+	nextState, err := computeNextState(newPositions, contract.State)
+	if err != nil {
+		return tttPb.TttContract{}, err
+	}
+
 	return tttPb.TttContract{
 		Positions: newPositions,
-		Status:    nextStatus,
+		State:     nextState,
 		XPlayer:   contract.XPlayer,
 		OPlayer:   contract.OPlayer,
+	}, nil
+}
+
+func computeNextState(positions []tttPb.Mark, state tttPb.TttContract_State) (tttPb.TttContract_State, error) {
+	posString, err := winValidationString(positions)
+	if err != nil {
+		return state, err
+	}
+
+	switch state {
+	case tttPb.TttContract_XTURN:
+		if won(tttPb.Mark_X, posString) {
+			return tttPb.TttContract_XWON, nil
+		} else if boardFull(posString) {
+			return tttPb.TttContract_TIE, nil
+		} else {
+			return tttPb.TttContract_OTURN, nil
+		}
+	case tttPb.TttContract_OTURN:
+		if won(tttPb.Mark_O, posString) {
+			return tttPb.TttContract_OWON, nil
+		} else if boardFull(posString) {
+			return tttPb.TttContract_TIE, nil
+		} else {
+			return tttPb.TttContract_XTURN, nil
+		}
+	default:
+		return state, fmt.Errorf("Could not determine next state")
 	}
 }
 
-func computeNextStatus(positions []tttPb.Mark, status tttPb.TttContract_Status) tttPb.TttContract_Status {
-	// TODO: apply win functions
-	return tttPb.TttContract_OTURN
+func winValidationString(positions []tttPb.Mark) (string, error) {
+	if len(positions) != BOARD_SIZE {
+		return "", fmt.Errorf(
+			"Invalid number of positions detected. Expected %d, got %d",
+			BOARD_SIZE, len(positions))
+	}
+
+	result := ""
+	for i := 0; i < BOARD_SIZE; i++ {
+		result += positions[i].String()
+	}
+	return result, nil
+}
+
+func won(m tttPb.Mark, positions string) bool {
+	return threeInRowRegex(m).MatchString(positions) ||
+		threeInColRegex(m).MatchString(positions) ||
+		threeInDiagRegex(m).MatchString(positions)
+}
+
+func threeInRowRegex(m tttPb.Mark) *regexp.Regexp {
+	return regexp.MustCompile(
+		fmt.Sprintf("(^|...)(%s%s%s)(...|$)",
+			m.String(), m.String(), m.String()))
+}
+
+func threeInColRegex(m tttPb.Mark) *regexp.Regexp {
+	return regexp.MustCompile(
+		fmt.Sprintf("^(((%s..){3})|((.%s.){3})|((..%s){3}))$",
+			m.String(), m.String(), m.String()))
+}
+
+func threeInDiagRegex(m tttPb.Mark) *regexp.Regexp {
+	return regexp.MustCompile(
+		fmt.Sprintf("^(%s...%s...%s|..%s.%s.%s..)$",
+			m.String(), m.String(), m.String(),
+			m.String(), m.String(), m.String()))
+}
+
+var anyEmptyRegex = regexp.MustCompile(fmt.Sprintf("^.*%s.*$", tttPb.Mark_E.String()))
+
+func boardFull(positions string) bool {
+	return !anyEmptyRegex.MatchString(positions)
 }
 
 // The main function is only relevant in unit test mode. Only included here for completeness.

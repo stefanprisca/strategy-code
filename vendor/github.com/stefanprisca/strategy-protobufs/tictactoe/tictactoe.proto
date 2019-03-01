@@ -11,7 +11,7 @@ enum Mark {
 
 message TttContract{
     
-    enum Status {
+    enum State {
         XTURN = 0;
         OTURN = 1;
         XWON = 2;
@@ -20,7 +20,7 @@ message TttContract{
     }
 
     repeated Mark positions = 1;
-    Status status = 2;
+    State state = 2;
     string x_player = 3;
     string o_player = 4;
 

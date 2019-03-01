@@ -2,7 +2,11 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 
@@ -18,7 +22,7 @@ func initContract(t *testing.T) *shim.MockStub {
 	}
 	r := stub.MockInit("001", [][]byte{})
 
-	if r.Status != shim.OK {
+	if r.GetStatus() != shim.OK {
 		t.Fatalf("Could not init the contract. Error: %s", r.Message)
 	}
 	return stub
@@ -34,7 +38,7 @@ func TestInit(t *testing.T) {
 
 	expectedContract := tttPb.TttContract{
 		Positions: expectedMarks,
-		Status:    tttPb.TttContract_XTURN,
+		State:     tttPb.TttContract_XTURN,
 		XPlayer:   "player1",
 		OPlayer:   "player2",
 	}
@@ -50,9 +54,9 @@ func TestInit(t *testing.T) {
 
 func contractsEqual(c1, c2 tttPb.TttContract) (bool, string) {
 
-	if c1.Status != c2.Status {
-		return false, fmt.Sprintf("Contract status does not match. C1: < %v >, C2: < %v >",
-			c1.Status, c2.Status)
+	if c1.State != c2.State {
+		return false, fmt.Sprintf("Contract state does not match. C1: < %v >, C2: < %v >",
+			c1.State, c2.State)
 	}
 
 	if len(c1.Positions) != len(c2.Positions) {
@@ -75,9 +79,12 @@ func TestInvokeMove(t *testing.T) {
 	stub := initContract(t)
 	positionID := int32(1)
 	mark := tttPb.Mark_X
-	r := newMoveArgsBuilder("001", positionID, mark).
-		invoke(stub, t)
 
+	r, err := newMoveArgsBuilder("001", positionID, mark).
+		invoke(stub)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	if r.GetStatus() != shim.OK {
 		t.Logf("Could not invoke move function, error: %s", r.GetMessage())
 		t.FailNow()
@@ -99,10 +106,18 @@ func TestInvokeMoveOnOccupiedPos(t *testing.T) {
 	positionID := int32(1)
 
 	markX := tttPb.Mark_X
-	newMoveArgsBuilder("001", positionID, markX).
-		invoke(stub, t)
-	r := newMoveArgsBuilder("002", positionID, tttPb.Mark_O).
-		invoke(stub, t)
+
+	_, err := newMoveArgsBuilder("001", positionID, markX).
+		invoke(stub)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	r, err := newMoveArgsBuilder("002", positionID, tttPb.Mark_O).
+		invoke(stub)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	if r.GetStatus() == shim.OK {
 		t.Fatalf("Did not expect invocation to be successful! position <%d> was taken!", positionID)
@@ -129,15 +144,17 @@ func TestInvokeMoveWrongMark(t *testing.T) {
 	}
 
 	mark := tttPb.Mark_O
-	if actualContract.Status != tttPb.TttContract_XTURN {
+	if actualContract.State != tttPb.TttContract_XTURN {
 		mark = tttPb.Mark_X
 	}
 
-	r := newMoveArgsBuilder("001", position, mark).
-		invoke(stub, t)
-
+	r, err := newMoveArgsBuilder("001", position, mark).
+		invoke(stub)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	if r.GetStatus() == shim.OK {
-		t.Fatalf("Did not expect invocation to be successful. Turn was < %v >  and mark < %v >", actualContract.Status, mark)
+		t.Fatalf("Did not expect invocation to be successful. Turn was < %v >  and mark < %v >", actualContract.State, mark)
 	}
 
 	actualContract, err = getLedgerContract(stub)
@@ -149,6 +166,251 @@ func TestInvokeMoveWrongMark(t *testing.T) {
 		t.Fatalf("Unexpected mark on position <%d>. Expected mark <%v>. Actual <%v>",
 			position, tttPb.Mark_E, actualMark)
 	}
+}
+
+func TestWinRegexpFunctions(t *testing.T) {
+
+	positions := []string{
+		tttPb.Mark_X.String(), tttPb.Mark_O.String(), tttPb.Mark_X.String(),
+		tttPb.Mark_X.String(), tttPb.Mark_X.String(), tttPb.Mark_X.String(),
+		tttPb.Mark_O.String(), tttPb.Mark_O.String(), tttPb.Mark_X.String()}
+	posString := strings.Join(positions, "")
+
+	if !matchAll(tttPb.Mark_X, posString) {
+		t.Fatalf("Expected X to match on all dimensions.")
+	}
+
+	if matchAny(tttPb.Mark_O, posString) {
+		t.Fatalf("Expected O to not match any dimensions.")
+	}
+}
+
+func matchAll(m tttPb.Mark, posString string) bool {
+	tr := threeInRowRegex(m).MatchString(posString)
+	tc := threeInColRegex(m).MatchString(posString)
+	td := threeInDiagRegex(m).MatchString(posString)
+
+	return tr && tc && td
+}
+
+func matchAny(m tttPb.Mark, posString string) bool {
+	tr := threeInRowRegex(m).MatchString(posString)
+	tc := threeInColRegex(m).MatchString(posString)
+	td := threeInDiagRegex(m).MatchString(posString)
+
+	return tr || tc || td
+}
+
+func TestGameScriptWinX(t *testing.T) {
+	script := []tttPb.MoveTrxPayload{
+		tttPb.MoveTrxPayload{Position: 0, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 1, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 4, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 8, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 3, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 5, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 6, Mark: tttPb.Mark_X},
+	}
+	stub := initContract(t)
+	_, err := runScriptAndCheckLastState(script, tttPb.TttContract_XWON, stub)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
+func TestGameScriptWinO(t *testing.T) {
+	script := []tttPb.MoveTrxPayload{
+		tttPb.MoveTrxPayload{Position: 0, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 1, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 4, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 8, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 3, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 5, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 7, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 2, Mark: tttPb.Mark_O},
+	}
+	stub := initContract(t)
+	_, err := runScriptAndCheckLastState(script, tttPb.TttContract_OWON, stub)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
+func TestGameScriptTie(t *testing.T) {
+	script := []tttPb.MoveTrxPayload{
+		tttPb.MoveTrxPayload{Position: 0, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 1, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 4, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 8, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 3, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 5, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 7, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 6, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 2, Mark: tttPb.Mark_X},
+	}
+	stub := initContract(t)
+	_, err := runScriptAndCheckLastState(script, tttPb.TttContract_TIE, stub)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
+func TestGameScriptInvalidMoveXTurn(t *testing.T) {
+	script := []tttPb.MoveTrxPayload{
+		tttPb.MoveTrxPayload{Position: 0, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 1, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 8, Mark: tttPb.Mark_O},
+	}
+	stub := initContract(t)
+	responses, err := runScriptAndCheckLastState(script, tttPb.TttContract_XTURN, stub)
+	if err == nil {
+		t.Fatal("Expected script to fail")
+	}
+
+	lastResponse := responses[len(responses)-1]
+	if lastResponse.GetStatus() != shim.ERROR {
+		t.Fatal("Expected script to fail")
+	}
+	t.Log(lastResponse.Message)
+}
+
+func TestGameScriptInvalidMoveXWon(t *testing.T) {
+	script := []tttPb.MoveTrxPayload{
+		tttPb.MoveTrxPayload{Position: 0, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 1, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 4, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 8, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 3, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 5, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 6, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 2, Mark: tttPb.Mark_O},
+	}
+	stub := initContract(t)
+	responses, err := runScriptAndCheckLastState(script, tttPb.TttContract_XWON, stub)
+	if err == nil {
+		t.Fatal("Expected script to fail")
+	}
+
+	lastResponse := responses[len(responses)-1]
+	if lastResponse.GetStatus() != shim.ERROR {
+		t.Fatal("Expected script to fail")
+	}
+	t.Log(lastResponse.Message)
+}
+
+func TestGameScriptInvalidMoveTie(t *testing.T) {
+	script := []tttPb.MoveTrxPayload{
+		tttPb.MoveTrxPayload{Position: 0, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 1, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 4, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 8, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 3, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 5, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 7, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 6, Mark: tttPb.Mark_O},
+		tttPb.MoveTrxPayload{Position: 2, Mark: tttPb.Mark_X},
+		tttPb.MoveTrxPayload{Position: 2, Mark: tttPb.Mark_X},
+	}
+	stub := initContract(t)
+	responses, err := runScriptAndCheckLastState(script, tttPb.TttContract_XWON, stub)
+	if err == nil {
+		t.Fatal("Expected script to fail")
+	}
+
+	lastResponse := responses[len(responses)-1]
+	if lastResponse.GetStatus() != shim.ERROR {
+		t.Fatal("Expected script to fail")
+	}
+	t.Log(lastResponse.Message)
+}
+
+func runScriptAndCheckLastState(script []tttPb.MoveTrxPayload, expectedState tttPb.TttContract_State, stub *shim.MockStub) ([]pb.Response, error) {
+	responses, err := runScript(script, stub)
+	if err != nil {
+		return responses, fmt.Errorf("Could not run script. Error %s", err.Error())
+	}
+
+	for _, r := range responses {
+		if r.GetStatus() != shim.OK {
+			return responses, fmt.Errorf("Got unexpected response %s", r.Message)
+		}
+	}
+
+	lastContractPayload := responses[len(responses)-1].GetPayload()
+	lastContract := &tttPb.TttContract{}
+	if err = proto.Unmarshal(lastContractPayload, lastContract); err != nil {
+		return responses, fmt.Errorf("Could not unmarshal last contract. Error %s", err.Error())
+	}
+
+	if lastContract.State != expectedState {
+		return responses, fmt.Errorf("Expected last state to be %v. Actual %v \n Board:%v",
+			expectedState, lastContract.State, lastContract.Positions)
+	}
+
+	return responses, nil
+}
+
+func TestContractRandomlyTerminates(t *testing.T) {
+	script := generateRandomScript()
+	stub := initContract(t)
+	t.Logf("Running script %v \n", script)
+	runScript(script, stub)
+
+	contract, err := getLedgerContract(stub)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	if contract.State == tttPb.TttContract_XTURN ||
+		contract.State == tttPb.TttContract_OTURN {
+		t.Fatalf("Unexpected state for the contract %v. Expected terminal state (one of [%v %v %v]) ",
+			contract.State, tttPb.TttContract_TIE, tttPb.TttContract_XWON, tttPb.TttContract_OWON)
+	}
+}
+
+func generateRandomScript() []tttPb.MoveTrxPayload {
+	rand.Seed(time.Now().UnixNano())
+	script := make([]tttPb.MoveTrxPayload, BOARD_SIZE)
+	positions := make([]int, BOARD_SIZE)
+	for i := 0; i < BOARD_SIZE; i++ {
+		positions[i] = i
+	}
+
+	nm := tttPb.Mark_X
+	for i := 0; i < BOARD_SIZE; i++ {
+
+		np := rand.Intn(len(positions))
+		script[i] = tttPb.MoveTrxPayload{Position: int32(positions[np]), Mark: nm}
+
+		pNext := positions[:np]
+		for k := np + 1; k < len(positions); k++ {
+			pNext = append(pNext, positions[k])
+		}
+		positions = pNext
+
+		if nm == tttPb.Mark_X {
+			nm = tttPb.Mark_O
+		} else {
+			nm = tttPb.Mark_X
+		}
+	}
+	return script
+}
+
+func runScript(script []tttPb.MoveTrxPayload, stub *shim.MockStub) ([]pb.Response, error) {
+	responses := make([]pb.Response, len(script))
+	for i := range script {
+		payload := script[i]
+		r, err := newMoveArgsBuilder(strconv.Itoa(i), payload.Position, payload.Mark).
+			invoke(stub)
+
+		responses[i] = r
+		if err != nil {
+			return responses, err
+		}
+	}
+
+	return responses, nil
 }
 
 type trxArgsBuilder struct {
@@ -173,12 +435,11 @@ func (tArgsB *trxArgsBuilder) marshal() ([]byte, error) {
 	return proto.Marshal(tArgsB.trxArgs)
 }
 
-func (tArgsB *trxArgsBuilder) invoke(stub *shim.MockStub, t *testing.T) pb.Response {
+func (tArgsB *trxArgsBuilder) invoke(stub *shim.MockStub) (pb.Response, error) {
 	invokeArgs, err := tArgsB.marshal()
 	if err != nil {
-		t.Fatalf("Error creating invoke args. %s", err.Error())
+		return pb.Response{}, fmt.Errorf("Error creating invoke args. %s", err.Error())
 	}
-
 	r := stub.MockInvoke(tArgsB.uuid, [][]byte{invokeArgs})
-	return r
+	return r, nil
 }

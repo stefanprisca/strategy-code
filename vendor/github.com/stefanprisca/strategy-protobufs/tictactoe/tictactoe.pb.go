@@ -65,24 +65,24 @@ func (TrxType) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_tictactoe_3e3a0a7e4c073356, []int{1}
 }
 
-type TttContract_Status int32
+type TttContract_State int32
 
 const (
-	TttContract_XTURN TttContract_Status = 0
-	TttContract_OTURN TttContract_Status = 1
-	TttContract_XWON  TttContract_Status = 2
-	TttContract_OWON  TttContract_Status = 3
-	TttContract_TIE   TttContract_Status = 4
+	TttContract_XTURN TttContract_State = 0
+	TttContract_OTURN TttContract_State = 1
+	TttContract_XWON  TttContract_State = 2
+	TttContract_OWON  TttContract_State = 3
+	TttContract_TIE   TttContract_State = 4
 )
 
-var TttContract_Status_name = map[int32]string{
+var TttContract_State_name = map[int32]string{
 	0: "XTURN",
 	1: "OTURN",
 	2: "XWON",
 	3: "OWON",
 	4: "TIE",
 }
-var TttContract_Status_value = map[string]int32{
+var TttContract_State_value = map[string]int32{
 	"XTURN": 0,
 	"OTURN": 1,
 	"XWON":  2,
@@ -90,16 +90,16 @@ var TttContract_Status_value = map[string]int32{
 	"TIE":   4,
 }
 
-func (x TttContract_Status) String() string {
-	return proto.EnumName(TttContract_Status_name, int32(x))
+func (x TttContract_State) String() string {
+	return proto.EnumName(TttContract_State_name, int32(x))
 }
-func (TttContract_Status) EnumDescriptor() ([]byte, []int) {
+func (TttContract_State) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_tictactoe_3e3a0a7e4c073356, []int{0, 0}
 }
 
 type TttContract struct {
 	Positions            []Mark               `protobuf:"varint,1,rep,packed,name=positions,proto3,enum=tictactoe.Mark" json:"positions,omitempty"`
-	Status               TttContract_Status   `protobuf:"varint,2,opt,name=status,proto3,enum=tictactoe.TttContract_Status" json:"status,omitempty"`
+	State               TttContract_State   `protobuf:"varint,2,opt,name=state,proto3,enum=tictactoe.TttContract_State" json:"state,omitempty"`
 	XPlayer              string               `protobuf:"bytes,3,opt,name=x_player,json=xPlayer,proto3" json:"x_player,omitempty"`
 	OPlayer              string               `protobuf:"bytes,4,opt,name=o_player,json=oPlayer,proto3" json:"o_player,omitempty"`
 	LastUpdated          *timestamp.Timestamp `protobuf:"bytes,9,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
@@ -139,9 +139,9 @@ func (m *TttContract) GetPositions() []Mark {
 	return nil
 }
 
-func (m *TttContract) GetStatus() TttContract_Status {
+func (m *TttContract) GetStatus() TttContract_State {
 	if m != nil {
-		return m.Status
+		return m.State
 	}
 	return TttContract_XTURN
 }
@@ -320,7 +320,7 @@ func init() {
 	proto.RegisterType((*MoveTrxPayload)(nil), "tictactoe.MoveTrxPayload")
 	proto.RegisterEnum("tictactoe.Mark", Mark_name, Mark_value)
 	proto.RegisterEnum("tictactoe.TrxType", TrxType_name, TrxType_value)
-	proto.RegisterEnum("tictactoe.TttContract_Status", TttContract_Status_name, TttContract_Status_value)
+	proto.RegisterEnum("tictactoe.TttContract_State", TttContract_State_name, TttContract_State_value)
 }
 
 func init() { proto.RegisterFile("tictactoe.proto", fileDescriptor_tictactoe_3e3a0a7e4c073356) }
