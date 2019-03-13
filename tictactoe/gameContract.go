@@ -65,7 +65,7 @@ func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response 
 	trxArgs := &tttPb.TrxArgs{}
 	err := proto.Unmarshal(protoTrxArgs, trxArgs)
 	if err != nil {
-		errMsg := fmt.Sprintf("Could not parse transaction args. Error %s", err.Error())
+		errMsg := fmt.Sprintf("Could not parse transaction args %v. Error %s", trxArgs, err.Error())
 		return shim.Error(errMsg)
 	}
 
