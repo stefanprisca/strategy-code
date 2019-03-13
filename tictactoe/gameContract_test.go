@@ -454,6 +454,6 @@ func (tArgsB *trxArgsBuilder) invoke(stub *shim.MockStub) (pb.Response, error) {
 	if err != nil {
 		return pb.Response{}, fmt.Errorf("Error creating invoke args. %s", err.Error())
 	}
-	r := stub.MockInvoke(tArgsB.uuid, [][]byte{invokeArgs})
+	r := stub.MockInvoke(tArgsB.uuid, [][]byte{[]byte("foo"), invokeArgs})
 	return r, nil
 }

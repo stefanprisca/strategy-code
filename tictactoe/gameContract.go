@@ -60,7 +60,9 @@ func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response 
 	// 	fmt.Println("Creator: ", string(creator))
 	// }
 
-	protoTrxArgs := APIstub.GetArgs()[0]
+	// The first argument is the function name!
+	// Second will be our protobuf payload.
+	protoTrxArgs := APIstub.GetArgs()[1]
 
 	trxArgs := &tttPb.TrxArgs{}
 	err := proto.Unmarshal(protoTrxArgs, trxArgs)
