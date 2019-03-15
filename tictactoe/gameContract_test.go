@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -364,21 +366,30 @@ func runScriptAndCheckLastState(script []tttPb.MoveTrxPayload, expectedState ttt
 	return responses, nil
 }
 
-func TestContractRandomlyTerminates(t *testing.T) {
+func TestContractRandomConsistency(t *testing.T) {
 	script := generateRandomScript()
 	stub := initContract(t)
 	t.Logf("Running script %v \n", script)
 	runScript(script, stub)
 
 	contract, err := getLedgerContract(stub)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	require.NoError(t, err)
 
 	if contract.State == tttPb.TttContract_XTURN ||
 		contract.State == tttPb.TttContract_OTURN {
 		t.Fatalf("Unexpected state for the contract %v. Expected terminal state (one of [%v %v %v]) ",
 			contract.State, tttPb.TttContract_TIE, tttPb.TttContract_XWON, tttPb.TttContract_OWON)
+	}
+
+	// Run the script a bunch of times and make sure the last state is consistent
+	expectedState := contract.State
+	for r := 0; r < 1000; r = r + 1 {
+		miniStub := initContract(t)
+		runScript(script, miniStub)
+		tempC, err := getLedgerContract(miniStub)
+		require.NoError(t, err)
+		require.True(t, tempC.State == expectedState,
+			"Unexpected state for the contract %v. Expected %v.", tempC, expectedState)
 	}
 }
 
