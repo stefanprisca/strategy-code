@@ -55,10 +55,10 @@ func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) pb.Response {
 }
 
 func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response {
-	// creator, errc := APIstub.GetCreator()
-	// if errc == nil {
-	// 	fmt.Println("Creator: ", string(creator))
-	// }
+	creator, errc := APIstub.GetCreator()
+	if errc == nil {
+		fmt.Println("Creator: ", string(creator))
+	}
 
 	// The first argument is the function name!
 	// Second will be our protobuf payload.
