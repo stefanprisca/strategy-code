@@ -10,7 +10,6 @@ require (
 	github.com/hyperledger/fabric-amcl v0.0.0-20181230093703-5ccba6eab8d6 // indirect
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7 // indirect
 	github.com/spf13/viper v1.3.2 // indirect
-	github.com/stefanprisca/strategy-protobufs v0.0.0-20190228121153-3d3c14b5b3ca
 	github.com/stretchr/testify v1.3.0
 	github.com/sykesm/zap-logfmt v0.0.2 // indirect
 	go.uber.org/zap v1.10.0 // indirect

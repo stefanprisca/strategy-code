@@ -2,7 +2,6 @@ package tfc
 
 import (
 	"fmt"
-	"log"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,14 +10,18 @@ import (
 )
 
 func TestGenerateTile(t *testing.T) {
-	gb := NewGameBoard()
+	gb, err := NewGameBoard()
+	require.NoError(t, err)
+
 	for _, I := range gb.Intersections {
 		require.NotNil(t, I.Id,
 			"expected intersection ID for %v", I)
-		require.NotNil(t, *I.Attributes,
+		require.NotNil(t, I.Attributes,
 			"expected intersection attributes for %v", I)
-		require.NotNil(t, *I.Coordinates,
+		require.NotNil(t, I.Coordinates,
 			"expected intersection coordinates for %v", I)
+		require.NotNil(t, I.IncidentEdge,
+			"expected intersection incident edge for %v", I)
 	}
 
 	for _, E := range gb.Edges {
@@ -32,19 +35,24 @@ func TestGenerateTile(t *testing.T) {
 			"expected edge next pointer for %v", E)
 		require.NotNil(t, E.Prev,
 			"expected edge prev pointer for %v", E)
-	}
+		require.NotNil(t, E.IncidentTile,
+			"expected edge tile for %v", E)
 
-	require.Equal(t, len(gb.Intersections), len(gb.Edges),
-		"expected each intersection to have a corresponding edge")
+		// if E.GetTwin() != 0 {
+		// 	twin := gb.Edges[E.GetTwin()]
+		// 	require.Equal(t, E.Id, twin.GetTwin(),
+		// 		"expected twin edge to point back for %v:\n\t got %v", E, twin)
+		// }
+	}
 
 	fmt.Println(prettyPrintGb(*gb))
 
 }
 
 func prettyPrintGb(gb tfcPb.GameBoard) string {
-	canvas := NewCanvas(4, 4)
+	canvas := NewCanvas(16, 12)
 
-	var xOffset, yOffset int32 = 1, 3
+	var xOffset, yOffset int32 = 8, 7
 
 	for _, I := range gb.Intersections {
 		x := int(I.Coordinates.X + xOffset)
@@ -61,7 +69,7 @@ func prettyPrintGb(gb tfcPb.GameBoard) string {
 		x1 := int(dest.Coordinates.X + xOffset)
 		y1 := int(dest.Coordinates.Y + yOffset)
 
-		log.Printf("Drawing edge (%v, %v) - (%v, %v)", x0, y0, x1, y1)
+		// log.Printf("Drawing edge (%v, %v) - (%v, %v)", x0, y0, x1, y1)
 
 		canvas.DrawLine(x0, y0, x1, y1)
 	}

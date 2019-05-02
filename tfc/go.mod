@@ -16,7 +16,7 @@ require (
 	github.com/onsi/gomega v1.5.0 // indirect
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7 // indirect
 	github.com/spf13/viper v1.3.2 // indirect
-	github.com/stefanprisca/strategy-protobufs v0.0.0-20190502085517-b5c2ceab4e13
+	github.com/stefanprisca/strategy-protobufs v0.0.0-20190502133108-0006c391fc13
 	github.com/stretchr/testify v1.3.0
 	github.com/sykesm/zap-logfmt v0.0.2 // indirect
 	go.uber.org/zap v1.10.0 // indirect

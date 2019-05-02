@@ -14,6 +14,8 @@ const (
 	S  = "SOUTH"
 	SW = "SOUTH-WEST"
 	NW = "NORTH-WEST"
+
+	SIZE = 2
 )
 
 func pointHash(c tfcPb.Coord) uint32 {
@@ -24,7 +26,7 @@ func edgeHash(c tfcPb.Coord, o string) uint32 {
 	return crc32.ChecksumIEEE([]byte(c.String() + o))
 }
 
-func NewGameBoard() *tfcPb.GameBoard {
+func NewGameBoard() (*tfcPb.GameBoard, error) {
 	c0 := tfcPb.Coord{X: 0, Y: 0}
 	o0 := N
 	gb := &tfcPb.GameBoard{
@@ -32,9 +34,67 @@ func NewGameBoard() *tfcPb.GameBoard {
 		Intersections: make(map[uint32]*tfcPb.Intersection),
 		Tiles:         make(map[uint32]*tfcPb.Tile),
 	}
-	generateTile(gb, c0, o0)
 
-	return gb
+	err := generateTile(gb, c0, o0)
+	if err != nil {
+		return nil, fmt.Errorf("Could not generate initial tile, %s", err)
+	}
+	for l := 0; l < SIZE; l++ {
+		err := expandGameBoard(gb)
+		if err != nil {
+			return nil, fmt.Errorf("could not expand gb: %s", err)
+		}
+	}
+
+	return gb, nil
+}
+
+func expandGameBoard(gb *tfcPb.GameBoard) error {
+	edgeIDs := []uint32{}
+	for eID := range gb.Edges {
+		edgeIDs = append(edgeIDs, eID)
+	}
+
+	// log.Printf("####\n\n Expanding gb with edges %v \n\n", edgeIDs)
+
+	for _, eID := range edgeIDs {
+		E := gb.Edges[eID]
+		if E.Twin == 0 {
+			originId := gb.Edges[E.Next].Origin
+			c := *gb.Intersections[originId].Coordinates
+			o := reverseOrientation(E.Orientation)
+			err := generateTile(gb, c, o)
+			if err != nil {
+				return fmt.Errorf("could not expand on %v: %s", E, err)
+			}
+
+			twinID := edgeHash(c, o)
+			twin := gb.Edges[twinID]
+			twin.Twin = E.Id
+			E.Twin = twinID
+			// log.Printf("Expanded on edge %s, \n\t created twin %s", E, twin)
+		}
+	}
+	return nil
+}
+
+func reverseOrientation(o string) string {
+	switch o {
+	case N:
+		return S
+	case NW:
+		return SE
+	case SW:
+		return NE
+	case S:
+		return N
+	case SE:
+		return NW
+	case NE:
+		return SW
+	default:
+		return o
+	}
 }
 
 func generateTile(gb *tfcPb.GameBoard, c tfcPb.Coord, o string) error {
@@ -91,7 +151,8 @@ func newIEPair(gb *tfcPb.GameBoard, c tfcPb.Coord, o string) (
 		Attributes: &tfcPb.EdgeAttributes{
 			Road: tfcPb.Road_NOROAD,
 		},
-		Origin: iID,
+		Origin:      iID,
+		Orientation: o,
 	}
 
 	return I, E

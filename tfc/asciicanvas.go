@@ -12,7 +12,7 @@ type Canvas struct {
 }
 
 func NewCanvas(width, height int) *Canvas {
-	return NewCanvasWithPD(width, height, 3)
+	return NewCanvasWithPD(width, height, 4)
 }
 
 func NewCanvasWithPD(width, height, pointDist int) *Canvas {
