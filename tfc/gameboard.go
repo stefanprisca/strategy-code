@@ -91,10 +91,17 @@ func expandGameBoard(gb *tfcPb.GameBoard, tileAttrStacks tileAttributeStacks) er
 		}
 	}
 
-	// log.Printf("####\n\n Expanding gb with edges %v \n\n", edgeIDs)
+	// log.Printf("####\n\n Expanding gb \n\n")
 
 	for _, eID := range edgeIDs {
 		E := gb.Edges[eID]
+
+		// The twin might have been set on a previous expand step
+		// Continute to next in this case.
+		if E.Twin != 0 {
+			continue
+		}
+
 		originId := gb.Edges[E.Next].Origin
 		c := *gb.Intersections[originId].Coordinates
 		o := twinOrientation(E.Orientation)
@@ -103,7 +110,7 @@ func expandGameBoard(gb *tfcPb.GameBoard, tileAttrStacks tileAttributeStacks) er
 			return fmt.Errorf("could not expand on %v: %s", E, err)
 		}
 
-		// log.Printf("Expanded on edge %s, \n\t created twin %s", E, twin)
+		// log.Printf("Expanded on edge %s", E)
 	}
 	return nil
 }
@@ -114,6 +121,11 @@ func generateTile(gb *tfcPb.GameBoard, c tfcPb.Coord, o string, attrStacks tileA
 	currI, currE := newIEPair(gb, currC, currO)
 	tileID := currE.Id
 
+	gb.Intersections[currI.Id] = currI
+	currE.IncidentTile = tileID
+	// log.Printf("Setting incident tile for %v (%v,%v) to %v", currE.Id, currC, currO, tileID)
+	gb.Edges[currE.Id] = currE
+
 	gb.Tiles[tileID] = &tfcPb.Tile{
 		Id:             tileID,
 		OuterComponent: currE.Id,
@@ -123,13 +135,7 @@ func generateTile(gb *tfcPb.GameBoard, c tfcPb.Coord, o string, attrStacks tileA
 		},
 	}
 
-	currE.IncidentTile = tileID
-
 	E0 := currE
-
-	gb.Intersections[currI.Id] = currI
-	gb.Edges[currE.Id] = currE
-
 	for k := 0; k < 5; k++ {
 		nextC, nextO, err := nextCoord(currC, currO)
 		if err != nil {
@@ -138,6 +144,7 @@ func generateTile(gb *tfcPb.GameBoard, c tfcPb.Coord, o string, attrStacks tileA
 
 		nextI, nextE := newIEPair(gb, nextC, nextO)
 		nextE.IncidentTile = tileID
+		// log.Printf("Setting incident tile for %v (%v,%v) to %v", nextE.Id, nextC, nextO, tileID)
 		currE.Next, nextE.Prev = nextE.Id, currE.Id
 
 		gb.Intersections[nextI.Id] = nextI
