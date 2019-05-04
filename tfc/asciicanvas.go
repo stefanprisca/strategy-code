@@ -43,26 +43,26 @@ func (c *Canvas) DrawPoint(x, y int) {
 
 func (c *Canvas) DrawLine(x0, y0, x1, y1 int) {
 
-	diffX := (x0 - x1) * c.pointDist
-	diffY := (y0 - y1) * c.pointDist
+	distX := (x0 - x1) * c.pointDist
+	distY := (y0 - y1) * c.pointDist
 	x, y := x0*c.pointDist, y0*c.pointDist
 
-	for diffX > 1 || diffX < -1 ||
-		diffY > 1 || diffY < -1 {
+	for distX > 1 || distX < -1 ||
+		distY > 1 || distY < -1 {
 
-		dirX := direction(diffX)
-		dirY := direction(diffY)
+		dirX := direction(distX)
+		dirY := direction(distY)
 		mark := getLineMark(dirX, dirY)
 
 		x += dirX
 		y += dirY
 
 		// log.Printf("Drawing rune %v at <%v, %v> ", mark, x, y)
-		// log.Printf("Remaining diff is <%v, %v>", diffX, diffY)
+		// log.Printf("Remaining diff is <%v, %v>", distX, distY)
 		c.prettyRunes[y][x] = mark
 
-		diffX = reduceDist(diffX)
-		diffY = reduceDist(diffY)
+		distX = reduceDist(distX)
+		distY = reduceDist(distY)
 	}
 }
 

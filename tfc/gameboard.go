@@ -3,7 +3,9 @@ package tfc
 import (
 	"fmt"
 	"hash/crc32"
+	"math/rand"
 
+	"github.com/golang-collections/collections/stack"
 	tfcPb "github.com/stefanprisca/strategy-protobufs/tfc"
 )
 
@@ -26,6 +28,11 @@ func edgeHash(c tfcPb.Coord, o string) uint32 {
 	return crc32.ChecksumIEEE([]byte(c.String() + o))
 }
 
+type tileAttributeStacks struct {
+	resourceStack *stack.Stack
+	rollStack     *stack.Stack
+}
+
 func NewGameBoard() (*tfcPb.GameBoard, error) {
 	c0 := tfcPb.Coord{X: 0, Y: 0}
 	o0 := N
@@ -35,12 +42,16 @@ func NewGameBoard() (*tfcPb.GameBoard, error) {
 		Tiles:         make(map[uint32]*tfcPb.Tile),
 	}
 
-	err := generateTile(gb, c0, o0)
+	resourceStack := newResourceStack()
+	rollStack := newRollStack()
+	tileAttrStacks := tileAttributeStacks{resourceStack, rollStack}
+
+	err := generateTile(gb, c0, o0, tileAttrStacks)
 	if err != nil {
 		return nil, fmt.Errorf("Could not generate initial tile, %s", err)
 	}
 	for l := 0; l < SIZE; l++ {
-		err := expandGameBoard(gb)
+		err := expandGameBoard(gb, tileAttrStacks)
 		if err != nil {
 			return nil, fmt.Errorf("could not expand gb: %s", err)
 		}
@@ -49,59 +60,69 @@ func NewGameBoard() (*tfcPb.GameBoard, error) {
 	return gb, nil
 }
 
-func expandGameBoard(gb *tfcPb.GameBoard) error {
+func newResourceStack() *stack.Stack {
+	resStack := stack.New()
+	for i := 0; i < 10; i++ {
+		resStack.Push(tfcPb.Resource_CAMP)
+		resStack.Push(tfcPb.Resource_FIELD)
+		resStack.Push(tfcPb.Resource_FOREST)
+		resStack.Push(tfcPb.Resource_HILL)
+		resStack.Push(tfcPb.Resource_MOUNTAIN)
+		resStack.Push(tfcPb.Resource_PASTURE)
+	}
+	return resStack
+}
+
+func newRollStack() *stack.Stack {
+	rollStack := stack.New()
+	for i := 0; i < 5; i++ {
+		for _, rn := range rand.Perm(10) {
+			rollStack.Push(int32(rn + 2))
+		}
+	}
+	return rollStack
+}
+
+func expandGameBoard(gb *tfcPb.GameBoard, tileAttrStacks tileAttributeStacks) error {
 	edgeIDs := []uint32{}
-	for eID := range gb.Edges {
-		edgeIDs = append(edgeIDs, eID)
+	for eID, E := range gb.Edges {
+		if E.Twin == 0 {
+			edgeIDs = append(edgeIDs, eID)
+		}
 	}
 
 	// log.Printf("####\n\n Expanding gb with edges %v \n\n", edgeIDs)
 
 	for _, eID := range edgeIDs {
 		E := gb.Edges[eID]
-		if E.Twin == 0 {
-			originId := gb.Edges[E.Next].Origin
-			c := *gb.Intersections[originId].Coordinates
-			o := reverseOrientation(E.Orientation)
-			err := generateTile(gb, c, o)
-			if err != nil {
-				return fmt.Errorf("could not expand on %v: %s", E, err)
-			}
-
-			twinID := edgeHash(c, o)
-			twin := gb.Edges[twinID]
-			twin.Twin = E.Id
-			E.Twin = twinID
-			// log.Printf("Expanded on edge %s, \n\t created twin %s", E, twin)
+		originId := gb.Edges[E.Next].Origin
+		c := *gb.Intersections[originId].Coordinates
+		o := twinOrientation(E.Orientation)
+		err := generateTile(gb, c, o, tileAttrStacks)
+		if err != nil {
+			return fmt.Errorf("could not expand on %v: %s", E, err)
 		}
+
+		// log.Printf("Expanded on edge %s, \n\t created twin %s", E, twin)
 	}
 	return nil
 }
 
-func reverseOrientation(o string) string {
-	switch o {
-	case N:
-		return S
-	case NW:
-		return SE
-	case SW:
-		return NE
-	case S:
-		return N
-	case SE:
-		return NW
-	case NE:
-		return SW
-	default:
-		return o
-	}
-}
-
-func generateTile(gb *tfcPb.GameBoard, c tfcPb.Coord, o string) error {
+func generateTile(gb *tfcPb.GameBoard, c tfcPb.Coord, o string, attrStacks tileAttributeStacks) error {
 	currC := c
 	currO := o
 	currI, currE := newIEPair(gb, currC, currO)
-	tileID := currI.Id
+	tileID := currE.Id
+
+	gb.Tiles[tileID] = &tfcPb.Tile{
+		Id:             tileID,
+		OuterComponent: currE.Id,
+		Attributes: &tfcPb.TileAttributes{
+			Resource:   attrStacks.resourceStack.Pop().(tfcPb.Resource),
+			RollNumber: attrStacks.rollStack.Pop().(int32),
+		},
+	}
+
 	currE.IncidentTile = tileID
 
 	E0 := currE
@@ -127,6 +148,8 @@ func generateTile(gb *tfcPb.GameBoard, c tfcPb.Coord, o string) error {
 
 	currE.Next, E0.Prev = E0.Id, currE.Id
 
+	updateTwins(gb, E0)
+
 	return nil
 }
 
@@ -134,20 +157,20 @@ func newIEPair(gb *tfcPb.GameBoard, c tfcPb.Coord, o string) (
 	I *tfcPb.Intersection, E *tfcPb.Edge) {
 
 	iID := pointHash(c)
-
+	eID := edgeHash(c, o)
 	I, ok := gb.Intersections[iID]
 	if !ok {
 		I = &tfcPb.Intersection{
 			Attributes: &tfcPb.IntersectionAttributes{
 				Settlement: tfcPb.Settlement_NOSETTLE,
 			},
-			Coordinates: &c,
-			Id:          iID,
+			Coordinates:  &c,
+			Id:           iID,
+			IncidentEdge: eID,
 		}
 	}
-
 	E = &tfcPb.Edge{
-		Id: edgeHash(c, o),
+		Id: eID,
 		Attributes: &tfcPb.EdgeAttributes{
 			Road: tfcPb.Road_NOROAD,
 		},
@@ -156,6 +179,47 @@ func newIEPair(gb *tfcPb.GameBoard, c tfcPb.Coord, o string) (
 	}
 
 	return I, E
+}
+
+func updateTwins(gb *tfcPb.GameBoard, e0 *tfcPb.Edge) {
+	nextE := gb.Edges[e0.Next]
+	currE := e0
+
+	for {
+		twinC := *gb.Intersections[nextE.Origin].Coordinates
+		twinO := twinOrientation(currE.Orientation)
+		twinID := edgeHash(twinC, twinO)
+		if twin, ok := gb.Edges[twinID]; ok {
+			currE.Twin = twinID
+			twin.Twin = currE.Id
+		}
+		currE = nextE
+		nextE = gb.Edges[nextE.Next]
+
+		if currE.Id == e0.Id {
+			break
+		}
+	}
+
+}
+
+func twinOrientation(o string) string {
+	switch o {
+	case N:
+		return S
+	case NW:
+		return SE
+	case SW:
+		return NE
+	case S:
+		return N
+	case SE:
+		return NW
+	case NE:
+		return SW
+	default:
+		return o
+	}
 }
 
 func nextCoord(c tfcPb.Coord, o string) (tfcPb.Coord, string, error) {

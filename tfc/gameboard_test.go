@@ -12,6 +12,14 @@ import (
 func TestGenerateTile(t *testing.T) {
 	gb, err := NewGameBoard()
 	require.NoError(t, err)
+	require.NotZero(t, len(gb.Intersections),
+		"expected to have intersections initialized")
+
+	require.NotZero(t, len(gb.Edges),
+		"expected to have edges initialized")
+
+	require.NotZero(t, len(gb.Tiles),
+		"expected to have tiles initialized")
 
 	for _, I := range gb.Intersections {
 		require.NotNil(t, I.Id,
@@ -38,11 +46,23 @@ func TestGenerateTile(t *testing.T) {
 		require.NotNil(t, E.IncidentTile,
 			"expected edge tile for %v", E)
 
-		// if E.GetTwin() != 0 {
-		// 	twin := gb.Edges[E.GetTwin()]
-		// 	require.Equal(t, E.Id, twin.GetTwin(),
-		// 		"expected twin edge to point back for %v:\n\t got %v", E, twin)
-		// }
+		if E.GetTwin() != 0 {
+			twin := gb.Edges[E.GetTwin()]
+			require.Equal(t, E.GetId(), twin.GetTwin(),
+				"expected twin edge to point back for %v:\n\t got %v", E, twin)
+		}
+	}
+
+	for _, T := range gb.Tiles {
+		require.NotNil(t, T.GetAttributes(),
+			"expected tile to have attributes")
+		require.NotZero(t, T.GetOuterComponent(),
+			"expected tile to have outer component")
+		outerCompID := T.GetOuterComponent()
+		outerComp := gb.Edges[outerCompID]
+		require.Equal(t, outerComp.IncidentTile, T.Id,
+			"expected outer component to point back to tile for %v:\n\t got %v",
+			T, outerComp)
 	}
 
 	fmt.Println(prettyPrintGb(*gb))
