@@ -116,6 +116,7 @@ github.com/spf13/pflag v1.0.3 h1:zPAT6CGy6wXeQ7NtTnaTerfKOsV6V6F8agHXFiazDkg=
 github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
 github.com/spf13/viper v1.3.2 h1:VUFqw5KcqRf7i70GOzW7N+Q7+gxVBkSSqiXB12+JQ4M=
 github.com/spf13/viper v1.3.2/go.mod h1:ZiWeW+zYFKm7srdB9IoDzzZXaJaI5eL9QjNiN/DMA2s=
+github.com/stefanprisca/strategy-code v0.0.0-20190504143904-4cc3439a5c77 h1:VEBJv8za1NlYK3OR7U5b2hKY5XpaBZ1BKOlKRuftz5c=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190502085252-1e3f99468cfd h1:oDB1OIzoHMANEHXX2Os3frUseLRegOkKErxS1L98se8=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190502085252-1e3f99468cfd/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190502085517-b5c2ceab4e13 h1:tdud3OOLS3GJ80y8q42UefYdlyJcF3fTvuXnG6/XASY=

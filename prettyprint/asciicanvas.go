@@ -1,4 +1,4 @@
-package tfc
+package prettyprint
 
 import (
 	"strings"
@@ -12,7 +12,7 @@ type Canvas struct {
 }
 
 func NewCanvas(width, height int) *Canvas {
-	return NewCanvasWithPD(width, height, 4)
+	return NewCanvasWithPD(width, height, 6)
 }
 
 func NewCanvasWithPD(width, height, pointDist int) *Canvas {
@@ -41,10 +41,19 @@ func (c *Canvas) DrawPoint(x, y int) {
 	c.prettyRunes[y][x] = '*'
 }
 
-func (c *Canvas) DrawLine(x0, y0, x1, y1 int) {
+func (c *Canvas) DrawLabel(x, y int, label string) {
+	x *= c.pointDist
+	y *= c.pointDist
+	c.drawLabel(x, y, label)
+}
+
+func (c *Canvas) DrawLine(x0, y0, x1, y1 int, label string) {
 
 	distX := (x0 - x1) * c.pointDist
 	distY := (y0 - y1) * c.pointDist
+
+	midX := distX / 2
+	midY := distY / 2
 	x, y := x0*c.pointDist, y0*c.pointDist
 
 	for distX > 1 || distX < -1 ||
@@ -52,14 +61,19 @@ func (c *Canvas) DrawLine(x0, y0, x1, y1 int) {
 
 		dirX := direction(distX)
 		dirY := direction(distY)
-		mark := getLineMark(dirX, dirY)
 
 		x += dirX
 		y += dirY
 
-		// log.Printf("Drawing rune %v at <%v, %v> ", mark, x, y)
-		// log.Printf("Remaining diff is <%v, %v>", distX, distY)
-		c.prettyRunes[y][x] = mark
+		if label != "" &&
+			(distX == (midX-dirX) && distY == (midY-dirY)) {
+			c.drawLabel(x, y, label)
+		} else {
+			// log.Printf("Drawing rune %v at <%v, %v> ", mark, x, y)
+			// log.Printf("Remaining diff is <%v, %v>", distX, distY)
+			mark := getLineMark(dirX, dirY)
+			c.prettyRunes[y][x] = mark
+		}
 
 		distX = reduceDist(distX)
 		distY = reduceDist(distY)
@@ -102,6 +116,13 @@ func getLineMark(dirX, dirY int) rune {
 		return '\\'
 	default:
 		return '-'
+	}
+}
+
+func (c *Canvas) drawLabel(x, y int, label string) {
+	labelStart := x - len(label)/2
+	for lx, r := range label {
+		c.prettyRunes[y][labelStart+lx] = r
 	}
 }
 
