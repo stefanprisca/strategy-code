@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	"github.com/stefanprisca/strategy-code/prettyprint"
+	"github.com/stefanprisca/strategy-code/tfc"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateGameBoard(t *testing.T) {
-	gb, err := NewGameBoard()
+	gb, err := tfc.NewGameBoard()
 	require.NoError(t, err)
 	require.NotZero(t, len(gb.Intersections),
 		"expected to have intersections initialized")
@@ -65,7 +66,7 @@ func TestGenerateGameBoard(t *testing.T) {
 	}
 
 	boardPrettyString := prettyprint.NewTFCBoardCanvas().
-		PrettyPrintTfcBoard()
+		PrettyPrintTfcBoard(*gb)
 	fmt.Println(boardPrettyString)
 
 }
