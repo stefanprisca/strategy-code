@@ -17,6 +17,7 @@ package tfc
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -83,6 +84,15 @@ func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response 
 	switch trxArgs.Type {
 	case tfcPb.GameTrxType_JOIN:
 		newGameData, err = handleJoin(APIstub, *gameData, *trxArgs.JoinTrxPayload)
+	case tfcPb.GameTrxType_ROLL:
+		// TODO
+		log.Println("ROLL is not yet implemented.")
+	case tfcPb.GameTrxType_NEXT:
+		log.Println("NEXT trx. Nothing to do here")
+	case tfcPb.GameTrxType_TRADE:
+		newGameData, err = handleTrade(APIstub, *gameData, *trxArgs.TradeTrxPayload)
+	case tfcPb.GameTrxType_DEV:
+		newGameData, err = handleDev(APIstub, *gameData, *trxArgs.BuildTrxPayload)
 	default:
 		return shim.Error(fmt.Sprint("Unkown transaction type <>"))
 	}
@@ -93,7 +103,8 @@ func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response 
 	// Compute the next game state
 	newGameState, err := computeNextState(newGameData, trxArgs.Type)
 	if err != nil {
-		return shim.Error(err.Error())
+		// Disable during testing until all components are working
+		// return shim.Error(err.Error())
 	}
 
 	newGameData.State = newGameState
@@ -144,6 +155,109 @@ func handleJoin(APIstub shim.ChaincodeStubInterface,
 		gameData.Profiles = make(map[int32]*tfcPb.PlayerProfile)
 	}
 	gameData.Profiles[playerID] = InitPlayerProfile()
+	return gameData, nil
+}
+
+// TODO: implement this
+func assertTradePrecond() error {
+	return nil
+}
+
+func handleTrade(APIstub shim.ChaincodeStubInterface,
+	gameData tfcPb.GameData, payload tfcPb.TradeTrxPayload) (tfcPb.GameData, error) {
+
+	err := assertTradePrecond()
+	if err != nil {
+		return gameData, fmt.Errorf(
+			"trade preconditions not met: %s", err)
+	}
+
+	srcID := GetPlayerId(payload.Source)
+	destID := GetPlayerId(payload.Dest)
+	resID := GetResourceId(payload.Resource)
+
+	srcProfile := gameData.Profiles[srcID]
+	destProfile := gameData.Profiles[destID]
+
+	srcProfile.Resources[resID] -= payload.Amount
+	destProfile.Resources[resID] += payload.Amount
+
+	return gameData, nil
+}
+
+// TODO: implement this
+func assertDevelopmentPrecond() error {
+	return nil
+}
+
+func handleDev(APIstub shim.ChaincodeStubInterface,
+	gameData tfcPb.GameData, payload tfcPb.BuildTrxPayload) (tfcPb.GameData, error) {
+
+	err := assertDevelopmentPrecond()
+	if err != nil {
+		return gameData, fmt.Errorf(
+			"development preconditions not met: %s", err)
+	}
+
+	switch payload.Type {
+	case tfcPb.BuildType_SETTLE:
+		return buildSettlement(gameData, *payload.BuildSettlePayload)
+	case tfcPb.BuildType_ROAD:
+		return buildRoad(gameData, *payload.BuildRoadPayload)
+	}
+
+	return gameData, nil
+}
+
+func buildSettlement(
+	gameData tfcPb.GameData, payload tfcPb.BuildSettlePayload) (tfcPb.GameData, error) {
+
+	playerID := GetPlayerId(payload.Player)
+	profile := gameData.Profiles[playerID]
+
+	for rID := range profile.Resources {
+		profile.Resources[rID]--
+	}
+
+	profile.Settlements--
+	profile.WinningPoints += 2
+
+	posID := uint32(payload.SettleID)
+	settleIntersection := gameData.Board.Intersections[posID]
+	switch payload.Player {
+	case tfcPb.Player_RED:
+		settleIntersection.Attributes.Settlement = tfcPb.Settlement_REDSETTLE
+	case tfcPb.Player_GREEN:
+		settleIntersection.Attributes.Settlement = tfcPb.Settlement_GREENSETTLE
+	case tfcPb.Player_BLUE:
+		settleIntersection.Attributes.Settlement = tfcPb.Settlement_BLUESETTLE
+	}
+
+	return gameData, nil
+}
+
+func buildRoad(
+	gameData tfcPb.GameData, payload tfcPb.BuildRoadPayload) (tfcPb.GameData, error) {
+
+	playerID := GetPlayerId(payload.Player)
+	profile := gameData.Profiles[playerID]
+
+	profile.Resources[GetResourceId(tfcPb.Resource_HILL)]--
+	profile.Resources[GetResourceId(tfcPb.Resource_FOREST)]--
+	profile.Roads--
+	profile.WinningPoints++
+
+	eID := uint32(payload.EdgeID)
+	edge := gameData.Board.Edges[eID]
+	switch payload.Player {
+	case tfcPb.Player_RED:
+		edge.Attributes.Road = tfcPb.Road_REDROAD
+	case tfcPb.Player_GREEN:
+		edge.Attributes.Road = tfcPb.Road_GREENROAD
+	case tfcPb.Player_BLUE:
+		edge.Attributes.Road = tfcPb.Road_BLUEROAD
+	}
+
 	return gameData, nil
 }
 
