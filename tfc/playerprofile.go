@@ -12,7 +12,7 @@ func GetResourceId(r tfcPb.Resource) int32 {
 	return int32(r)
 }
 
-func InitPlayerProfile(player tfcPb.Player) *tfcPb.PlayerProfile {
+func InitPlayerProfile() *tfcPb.PlayerProfile {
 
 	startingResources := make(map[int32]int32)
 	for _, r := range []tfcPb.Resource{tfcPb.Resource_CAMP, tfcPb.Resource_FIELD, tfcPb.Resource_FOREST,
