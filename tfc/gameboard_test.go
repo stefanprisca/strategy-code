@@ -1,17 +1,22 @@
 package tfc
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/stefanprisca/strategy-code/prettyprint"
-	"github.com/stefanprisca/strategy-code/tfc"
+	tfcPb "github.com/stefanprisca/strategy-protobufs/tfc"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateGameBoard(t *testing.T) {
-	gb, err := tfc.NewGameBoard()
+	gb, err := NewGameBoard()
 	require.NoError(t, err)
+	assertGameBoard(t, *gb)
+	// boardPrettyString := prettyprint.NewTFCBoardCanvas().
+	// 	PrettyPrintTfcBoard(*gb)
+	// fmt.Println(boardPrettyString)
+}
+
+func assertGameBoard(t *testing.T, gb tfcPb.GameBoard) {
 	require.NotZero(t, len(gb.Intersections),
 		"expected to have intersections initialized")
 
@@ -64,9 +69,5 @@ func TestGenerateGameBoard(t *testing.T) {
 			"expected outer component to point back to tile for %v:\n\t got %v",
 			T, outerComp)
 	}
-
-	boardPrettyString := prettyprint.NewTFCBoardCanvas().
-		PrettyPrintTfcBoard(*gb)
-	fmt.Println(boardPrettyString)
 
 }

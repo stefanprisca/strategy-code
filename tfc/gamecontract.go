@@ -15,6 +15,7 @@
 package tfc
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/gogo/protobuf/proto"
@@ -29,21 +30,39 @@ type GameContract struct {
 
 const CONTRACT_STATE_KEY = "contract.tfc.com"
 
+var ContractID = int32(binary.LittleEndian.Uint16([]byte(CONTRACT_STATE_KEY)))
+
 func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) pb.Response {
 	// The first argument is the function name!
 	// Second will be our protobuf payload.
-	protoInitArgs := APIstub.GetArgs()[1]
-	gcInitArgs := &tfcPb.GameContractInitArgs{}
 
-	err := proto.Unmarshal(protoInitArgs, gcInitArgs)
+	gameBoard, err := NewGameBoard()
 	if err != nil {
-		errMsg := fmt.Sprintf("could not parse init args: %s", err)
-		return shim.Error(errMsg)
+		errStr := fmt.Sprintf("could not create game board: %s", err)
+		return shim.Error(errStr)
 	}
 
-	var contractUUID = gcInitArgs.GetUuid()
-	print(contractUUID)
-	return shim.Success(nil)
+	playerProfiles := make(map[int32]*tfcPb.PlayerProfile)
+	identityMap := make(map[int32][]byte)
+
+	var contractUUID = []byte(APIstub.GetTxID())
+	identityMap[ContractID] = contractUUID
+
+	gameData := &tfcPb.GameData{
+		Board:       gameBoard,
+		Profiles:    playerProfiles,
+		State:       tfcPb.GameState_JOINING,
+		IdentityMap: identityMap,
+	}
+
+	protoData, err := proto.Marshal(gameData)
+	if err != nil {
+		return shim.Error(fmt.Sprintf("could not marshal game data: %s", err))
+	}
+
+	APIstub.PutState(CONTRACT_STATE_KEY, protoData)
+
+	return shim.Success(protoData)
 }
 
 func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response {
@@ -52,4 +71,18 @@ func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response 
 		fmt.Println("Creator: ", string(creator))
 	}
 	return shim.Error(fmt.Sprint("Unkown transaction type <>"))
+}
+
+func getLedgerData(APIstub shim.ChaincodeStubInterface) (*tfcPb.GameData, error) {
+	protoData, err := APIstub.GetState(CONTRACT_STATE_KEY)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get the contract from state. Error: %s", err.Error())
+	}
+
+	gameData := &tfcPb.GameData{}
+	err = proto.Unmarshal(protoData, gameData)
+	if err != nil {
+		return nil, fmt.Errorf("Could not unmarshal the proto contract. Error: %s", err.Error())
+	}
+	return gameData, nil
 }
