@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
 	"github.com/stefanprisca/strategy-protobufs/tfc"
@@ -64,9 +63,9 @@ func TestJoinGame(t *testing.T) {
 	cUUID := "01010101"
 	stub := initContract(t, cUUID)
 
-	_, err := newArgsBuilder().
-		withJoinArgs(tfcPb.Player_RED).
-		invoke(stub)
+	_, err := NewArgsBuilder().
+		WithJoinArgs(tfcPb.Player_RED).
+		invokeMock(stub)
 	require.NoError(t, err)
 
 	gameData, err := getLedgerData(stub)
@@ -101,14 +100,14 @@ func TestBuildSettle(t *testing.T) {
 	sID := pointHash(tfc.Coord{X: 0, Y: 0})
 	eID := edgeHash(tfc.Coord{X: 0, Y: 0}, N)
 
-	_, err := newArgsBuilder().
-		withBuildSettleArgs(tfcPb.Player_RED, sID).
-		invoke(stub)
+	_, err := NewArgsBuilder().
+		WithBuildSettleArgs(tfcPb.Player_RED, sID).
+		invokeMock(stub)
 	require.NoError(t, err)
 
-	_, err = newArgsBuilder().
-		withBuildRoadArgs(tfcPb.Player_RED, eID).
-		invoke(stub)
+	_, err = NewArgsBuilder().
+		WithBuildRoadArgs(tfcPb.Player_RED, eID).
+		invokeMock(stub)
 	require.NoError(t, err)
 
 	gameData, err := getLedgerData(stub)
@@ -140,72 +139,15 @@ func joinRGB(t *testing.T, stub *shim.MockStub) {
 		tfcPb.Player_RED, tfcPb.Player_BLUE, tfcPb.Player_GREEN} {
 
 		// proposal := pb.SignedProposal{ProposalBytes: , Signature:}
-		_, err := newArgsBuilder().
-			withJoinArgs(p).
-			invoke(stub)
+		_, err := NewArgsBuilder().
+			WithJoinArgs(p).
+			invokeMock(stub)
 		require.NoError(t, err)
 	}
 }
 
-type argsBuilder struct {
-	trxArgs *tfcPb.GameContractTrxArgs
-}
-
-func newArgsBuilder() *argsBuilder {
-	return &argsBuilder{}
-}
-
-func (ab *argsBuilder) build() ([][]byte, error) {
-	protoArgs, err := proto.Marshal(ab.trxArgs)
-	return [][]byte{[]byte("Testing"), protoArgs}, err
-}
-
-func (ab *argsBuilder) withJoinArgs(player tfcPb.Player) *argsBuilder {
-	pLoad := &tfcPb.JoinTrxPayload{Player: player}
-	ab.trxArgs = &tfcPb.GameContractTrxArgs{
-		Type:           tfcPb.GameTrxType_JOIN,
-		JoinTrxPayload: pLoad,
-	}
-
-	return ab
-}
-
-func (ab *argsBuilder) withBuildSettleArgs(player tfcPb.Player, sID uint32) *argsBuilder {
-	settlePLoad := &tfcPb.BuildSettlePayload{
-		Player:   player,
-		SettleID: int32(sID),
-	}
-
-	ab.trxArgs = &tfcPb.GameContractTrxArgs{
-		Type: tfcPb.GameTrxType_DEV,
-		BuildTrxPayload: &tfcPb.BuildTrxPayload{
-			Type:               tfcPb.BuildType_SETTLE,
-			BuildSettlePayload: settlePLoad,
-		},
-	}
-
-	return ab
-}
-
-func (ab *argsBuilder) withBuildRoadArgs(player tfcPb.Player, eID uint32) *argsBuilder {
-	roadPLoad := &tfcPb.BuildRoadPayload{
-		Player: player,
-		EdgeID: int32(eID),
-	}
-
-	ab.trxArgs = &tfcPb.GameContractTrxArgs{
-		Type: tfcPb.GameTrxType_DEV,
-		BuildTrxPayload: &tfcPb.BuildTrxPayload{
-			Type:             tfcPb.BuildType_ROAD,
-			BuildRoadPayload: roadPLoad,
-		},
-	}
-
-	return ab
-}
-
-func (ab *argsBuilder) invoke(stub *shim.MockStub) (pb.Response, error) {
-	protoArgs, err := ab.build()
+func (ab *ArgsBuilder) invokeMock(stub *shim.MockStub) (pb.Response, error) {
+	protoArgs, err := ab.Build()
 	if err != nil {
 		return pb.Response{}, err
 	}
