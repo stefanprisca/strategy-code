@@ -12,8 +12,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Dummy struct for hyperledger
+type MockContract struct {
+}
+
+func (gc *MockContract) Init(APIstub shim.ChaincodeStubInterface) pb.Response {
+	return HandleInit(APIstub)
+}
+
+func (gc *MockContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response {
+	return HandleInvoke(APIstub)
+}
+
 func initContract(t *testing.T, cUUID string) *shim.MockStub {
-	stub := shim.NewMockStub("mockGameContract", new(GameContract))
+	stub := shim.NewMockStub("mockGameContract", new(MockContract))
 	if stub == nil {
 		t.Fatalf("Failed to init mock")
 	}
