@@ -25,15 +25,11 @@ import (
 	tfcPb "github.com/stefanprisca/strategy-protobufs/tfc"
 )
 
-// Dummy struct for hyperledger
-type GameContract struct {
-}
-
 const CONTRACT_STATE_KEY = "contract.tfc.com"
 
 var ContractID = int32(binary.LittleEndian.Uint16([]byte(CONTRACT_STATE_KEY)))
 
-func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) pb.Response {
+func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
 	// The first argument is the function name!
 	// Second will be our protobuf payload.
 
@@ -64,7 +60,7 @@ func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) pb.Response {
 	return shim.Success(protoData)
 }
 
-func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response {
+func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 
 	protoArgs := APIstub.GetArgs()[1]
 	trxArgs := &tfcPb.GameContractTrxArgs{}
