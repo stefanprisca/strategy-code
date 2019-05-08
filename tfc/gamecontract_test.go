@@ -152,7 +152,9 @@ func (ab *ArgsBuilder) invokeMock(stub *shim.MockStub) (pb.Response, error) {
 		return pb.Response{}, err
 	}
 
-	resp := stub.MockInvoke("0001", protoArgs)
+	trxargs := [][]byte{[]byte("Test")}
+	trxargs = append(trxargs, protoArgs[0])
+	resp := stub.MockInvoke("0001", trxargs)
 	if shim.OK != resp.Status {
 		return resp,
 			fmt.Errorf("unexpected status: expected %v, got %v. message: %s",

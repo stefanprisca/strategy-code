@@ -15,7 +15,7 @@ func NewArgsBuilder() *ArgsBuilder {
 
 func (ab *ArgsBuilder) Build() ([][]byte, error) {
 	protoArgs, err := proto.Marshal(ab.trxArgs)
-	return [][]byte{[]byte("Testing"), protoArgs}, err
+	return [][]byte{protoArgs}, err
 }
 
 func (ab *ArgsBuilder) WithJoinArgs(player tfcPb.Player) *ArgsBuilder {
