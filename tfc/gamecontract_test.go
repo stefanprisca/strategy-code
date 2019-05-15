@@ -77,6 +77,11 @@ func TestJoinGame(t *testing.T) {
 
 	require.Equal(t, tfcPb.GameState_JOINING, gameData.State,
 		"unexpected state after one player joined")
+
+	profileNotNil := gameData.Profiles[expectedId] != nil
+	require.True(t, profileNotNil,
+		"expected profile to be initialized")
+
 }
 
 func TestRGBJoinGame(t *testing.T) {
@@ -89,6 +94,61 @@ func TestRGBJoinGame(t *testing.T) {
 
 	require.Equal(t, tfcPb.GameState_RROLL, gameData.State,
 		"unexpected state after one player joined")
+}
+
+func TestTrade(t *testing.T) {
+	cUUID := "01010101"
+	stub := initContract(t, cUUID)
+	joinRGB(t, stub)
+	_, err := roll(stub)
+	require.NoError(t, err)
+
+	src, dest := tfcPb.Player_RED, tfcPb.Player_BLUE
+	resource := tfcPb.Resource_HILL
+	amount := int32(2)
+	assertCorrectTrade(t, stub, src, dest, resource, amount)
+	assertCorrectTrade(t, stub, src, dest, resource, -amount)
+}
+
+func roll(stub *shim.MockStub) (pb.Response, error) {
+	return NewArgsBuilder().
+		WithRollArgs().
+		invokeMock(stub)
+}
+
+func assertCorrectTrade(t *testing.T, stub *shim.MockStub,
+	src, dest tfcPb.Player, resource tfcPb.Resource, amount int32) {
+
+	gameData, err := getLedgerData(stub)
+	require.NoError(t, err)
+
+	preSrcProfile := gameData.Profiles[GetPlayerId(src)]
+	preDestProfile := gameData.Profiles[GetPlayerId(dest)]
+
+	rID := GetResourceId(resource)
+
+	expectedSrcA := preSrcProfile.Resources[rID] - amount
+	expectedDestA := preDestProfile.Resources[rID] + amount
+
+	_, err = NewArgsBuilder().
+		WithTradeArgs(src, dest,
+			resource, amount).
+		invokeMock(stub)
+	require.NoError(t, err)
+
+	gameData, err = getLedgerData(stub)
+	require.NoError(t, err)
+
+	postSrcProfile := gameData.Profiles[GetPlayerId(src)]
+	postDestProfile := gameData.Profiles[GetPlayerId(dest)]
+
+	actualSrcA := postSrcProfile.Resources[rID]
+	actualDestA := postDestProfile.Resources[rID]
+
+	require.Equal(t, expectedSrcA, actualSrcA,
+		"source amount invalid after trade")
+	require.Equal(t, expectedDestA, actualDestA,
+		"source amount invalid after trade")
 }
 
 func TestBuildSettle(t *testing.T) {

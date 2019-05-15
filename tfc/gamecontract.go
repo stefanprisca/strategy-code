@@ -18,6 +18,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"regexp"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -83,6 +84,7 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 	case tfcPb.GameTrxType_ROLL:
 		// TODO
 		log.Println("ROLL is not yet implemented.")
+		newGameData = *gameData
 	case tfcPb.GameTrxType_NEXT:
 		log.Println("NEXT trx. Nothing to do here")
 	case tfcPb.GameTrxType_TRADE:
@@ -100,10 +102,11 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 	newGameState, err := computeNextState(newGameData, trxArgs.Type)
 	if err != nil {
 		// Disable during testing until all components are working
-		// return shim.Error(err.Error())
+		return shim.Error(err.Error())
 	}
 
 	newGameData.State = newGameState
+	log.Printf("Finished processing transaction, with state %v", newGameData.State)
 	// Put the state back on the ledger and return a result
 	protoData, err := proto.Marshal(&newGameData)
 	if err != nil {
@@ -154,15 +157,56 @@ func handleJoin(APIstub shim.ChaincodeStubInterface,
 	return gameData, nil
 }
 
+func tradeStateValidationString(src tfcPb.Player, state tfcPb.GameState) string {
+	return fmt.Sprintf("%v%v", src, state)
+}
+
+var tradeStateValidationRegexp = regexp.MustCompile(
+	fmt.Sprintf("%vRTRADE", tfcPb.Player_RED) +
+		fmt.Sprintf("|%vBTRADE", tfcPb.Player_BLUE) +
+		fmt.Sprintf("|%vGTRADE", tfcPb.Player_GREEN))
+
 // TODO: implement this
-func assertTradePrecond() error {
+func assertTradePrecond(gameData tfcPb.GameData, payload tfcPb.TradeTrxPayload) error {
+	state := gameData.State
+	src := payload.Source
+	stateValidationStr := tradeStateValidationString(src, state)
+	if !tradeStateValidationRegexp.MatchString(stateValidationStr) {
+		return fmt.Errorf("expected state to match one of %v, got %v",
+			tradeStateValidationRegexp, stateValidationStr)
+	}
+
+	return nil
+}
+
+func assertTradePostcond(gameData tfcPb.GameData, payload tfcPb.TradeTrxPayload) error {
+	res := payload.Resource
+	if err := hasValidPostTradeAmount(payload.Source, gameData, res); err != nil {
+		return err
+	}
+
+	if err := hasValidPostTradeAmount(payload.Dest, gameData, res); err != nil {
+		return err
+	}
+	return nil
+}
+
+func hasValidPostTradeAmount(p tfcPb.Player, gameData tfcPb.GameData, r tfcPb.Resource) error {
+	rID := GetResourceId(r)
+	pP := *gameData.Profiles[GetPlayerId(p)]
+	available := pP.Resources[rID]
+	if available < 0 {
+		return fmt.Errorf("player %v does not have required %v resources: %s",
+			p, r,
+			fmt.Sprintf("available: %v", available))
+	}
 	return nil
 }
 
 func handleTrade(APIstub shim.ChaincodeStubInterface,
 	gameData tfcPb.GameData, payload tfcPb.TradeTrxPayload) (tfcPb.GameData, error) {
 
-	err := assertTradePrecond()
+	err := assertTradePrecond(gameData, payload)
 	if err != nil {
 		return gameData, fmt.Errorf(
 			"trade preconditions not met: %s", err)
@@ -178,7 +222,7 @@ func handleTrade(APIstub shim.ChaincodeStubInterface,
 	srcProfile.Resources[resID] -= payload.Amount
 	destProfile.Resources[resID] += payload.Amount
 
-	return gameData, nil
+	return gameData, assertTradePostcond(gameData, payload)
 }
 
 // TODO: implement this
@@ -262,12 +306,23 @@ func computeNextState(gameData tfcPb.GameData, txType tfcPb.GameTrxType) (tfcPb.
 	switch {
 	// A player just joined, move to RROLL if all are in
 	case txType == tfcPb.GameTrxType_JOIN:
-		// log.Printf("Computing st after Join. %v", gameData.Profiles)
+		log.Printf("Computing st after Join. %v", gameData.Profiles)
 		if len(gameData.Profiles) == 3 {
+			log.Printf("Moved to %v", tfcPb.GameState_RROLL)
 			return tfcPb.GameState_RROLL, nil
 		}
 		return tfcPb.GameState_JOINING, nil
-	// Main state change
+
+	case txType == tfcPb.GameTrxType_ROLL:
+		switch st {
+		case tfcPb.GameState_RROLL:
+			return tfcPb.GameState_RTRADE, nil
+		case tfcPb.GameState_BROLL:
+			return tfcPb.GameState_BTRADE, nil
+		case tfcPb.GameState_GROLL:
+			return tfcPb.GameState_GTRADE, nil
+		}
+
 	case txType == tfcPb.GameTrxType_NEXT:
 		switch st {
 		case tfcPb.GameState_RROLL:
@@ -279,8 +334,6 @@ func computeNextState(gameData tfcPb.GameData, txType tfcPb.GameTrxType) (tfcPb.
 				return tfcPb.GameState_RWON, nil
 			}
 			return tfcPb.GameState_BROLL, nil
-		case tfcPb.GameState_BROLL:
-			return tfcPb.GameState_BTRADE, nil
 		case tfcPb.GameState_BTRADE:
 			return tfcPb.GameState_BDEV, nil
 		case tfcPb.GameState_BDEV:
@@ -288,8 +341,6 @@ func computeNextState(gameData tfcPb.GameData, txType tfcPb.GameTrxType) (tfcPb.
 				return tfcPb.GameState_BWON, nil
 			}
 			return tfcPb.GameState_GROLL, nil
-		case tfcPb.GameState_GROLL:
-			return tfcPb.GameState_GTRADE, nil
 		case tfcPb.GameState_GTRADE:
 			return tfcPb.GameState_GDEV, nil
 		case tfcPb.GameState_GDEV:
@@ -298,6 +349,12 @@ func computeNextState(gameData tfcPb.GameData, txType tfcPb.GameTrxType) (tfcPb.
 			}
 			return tfcPb.GameState_RROLL, nil
 		}
+	case txType == tfcPb.GameTrxType_TRADE:
+		return st, nil
+	case txType == tfcPb.GameTrxType_DEV:
+		return st, nil
+	case txType == tfcPb.GameTrxType_BATTLE:
+		return st, nil
 	}
 	return st, fmt.Errorf(
 		"could not compute next state from st %v and trx type %v", st, txType)

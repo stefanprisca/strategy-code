@@ -28,6 +28,29 @@ func (ab *ArgsBuilder) WithJoinArgs(player tfcPb.Player) *ArgsBuilder {
 	return ab
 }
 
+func (ab *ArgsBuilder) WithRollArgs() *ArgsBuilder {
+	ab.trxArgs = &tfcPb.GameContractTrxArgs{
+		Type: tfcPb.GameTrxType_ROLL,
+	}
+
+	return ab
+}
+
+func (ab *ArgsBuilder) WithTradeArgs(src, dest tfcPb.Player, r tfcPb.Resource, a int32) *ArgsBuilder {
+	pLoad := &tfcPb.TradeTrxPayload{
+		Source:   src,
+		Dest:     dest,
+		Resource: r,
+		Amount:   a,
+	}
+	ab.trxArgs = &tfcPb.GameContractTrxArgs{
+		Type:            tfcPb.GameTrxType_TRADE,
+		TradeTrxPayload: pLoad,
+	}
+
+	return ab
+}
+
 func (ab *ArgsBuilder) WithBuildSettleArgs(player tfcPb.Player, sID uint32) *ArgsBuilder {
 	settlePLoad := &tfcPb.BuildSettlePayload{
 		Player:   player,
