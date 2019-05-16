@@ -15,6 +15,7 @@
 package tfc
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"log"
@@ -76,11 +77,17 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 		return shim.Error(err.Error())
 	}
 
+	creatorSign, err := APIstub.GetCreator()
+	if err != nil {
+		return shim.Error(fmt.Sprintf(
+			"could not retrieve transaction creator: %s", err))
+	}
+
 	// Handle transaction logic
 	var newGameData tfcPb.GameData
 	switch trxArgs.Type {
 	case tfcPb.GameTrxType_JOIN:
-		newGameData, err = handleJoin(APIstub, *gameData, *trxArgs.JoinTrxPayload)
+		newGameData, err = handleJoin(APIstub, creatorSign, *gameData, *trxArgs.JoinTrxPayload)
 	case tfcPb.GameTrxType_ROLL:
 		// TODO
 		log.Println("ROLL is not yet implemented.")
@@ -88,7 +95,7 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 	case tfcPb.GameTrxType_NEXT:
 		log.Println("NEXT trx. Nothing to do here")
 	case tfcPb.GameTrxType_TRADE:
-		newGameData, err = handleTrade(APIstub, *gameData, *trxArgs.TradeTrxPayload)
+		newGameData, err = handleTrade(APIstub, creatorSign, *gameData, *trxArgs.TradeTrxPayload)
 	case tfcPb.GameTrxType_DEV:
 		newGameData, err = handleDev(APIstub, *gameData, *trxArgs.BuildTrxPayload)
 	default:
@@ -130,7 +137,7 @@ func assertJoinPrecond(gameData tfcPb.GameData, payload tfcPb.JoinTrxPayload) er
 	return nil
 }
 
-func handleJoin(APIstub shim.ChaincodeStubInterface,
+func handleJoin(APIstub shim.ChaincodeStubInterface, creatorSign []byte,
 	gameData tfcPb.GameData, payload tfcPb.JoinTrxPayload) (tfcPb.GameData, error) {
 
 	err := assertJoinPrecond(gameData, payload)
@@ -139,14 +146,8 @@ func handleJoin(APIstub shim.ChaincodeStubInterface,
 			"join preconditions not met: %s", err)
 	}
 
-	creator, err := APIstub.GetCreator()
-	if err != nil {
-		return gameData, fmt.Errorf(
-			"could not retrieve transaction creator: %s", err)
-	}
-
 	playerID := GetPlayerId(payload.Player)
-	gameData.IdentityMap[playerID] = creator
+	gameData.IdentityMap[playerID] = creatorSign
 
 	// If there was no other player that joined until now
 	// the profiles will be nil
@@ -157,7 +158,29 @@ func handleJoin(APIstub shim.ChaincodeStubInterface,
 	return gameData, nil
 }
 
-func tradeStateValidationString(src tfcPb.Player, state tfcPb.GameState) string {
+func handleTrade(APIstub shim.ChaincodeStubInterface, creatorSign []byte,
+	gameData tfcPb.GameData, payload tfcPb.TradeTrxPayload) (tfcPb.GameData, error) {
+
+	err := assertTradePrecond(gameData, creatorSign, payload)
+	if err != nil {
+		return gameData, fmt.Errorf(
+			"trade preconditions not met: %s", err)
+	}
+
+	srcID := GetPlayerId(payload.Source)
+	destID := GetPlayerId(payload.Dest)
+	resID := GetResourceId(payload.Resource)
+
+	srcProfile := gameData.Profiles[srcID]
+	destProfile := gameData.Profiles[destID]
+
+	srcProfile.Resources[resID] -= payload.Amount
+	destProfile.Resources[resID] += payload.Amount
+
+	return gameData, assertTradePostcond(gameData, payload)
+}
+
+func stateValidationString(src tfcPb.Player, state tfcPb.GameState) string {
 	return fmt.Sprintf("%v%v", src, state)
 }
 
@@ -167,10 +190,15 @@ var tradeStateValidationRegexp = regexp.MustCompile(
 		fmt.Sprintf("|%vGTRADE", tfcPb.Player_GREEN))
 
 // TODO: implement this
-func assertTradePrecond(gameData tfcPb.GameData, payload tfcPb.TradeTrxPayload) error {
+func assertTradePrecond(gameData tfcPb.GameData, creatorSign []byte, payload tfcPb.TradeTrxPayload) error {
 	state := gameData.State
-	src := payload.Source
-	stateValidationStr := tradeStateValidationString(src, state)
+	creator, err := getCreator(gameData, creatorSign)
+	if err != nil || creator != payload.Source {
+		return fmt.Errorf("invalid trx creator, or creator not identified (<0): expected %v, got %v",
+			creator, payload.Source)
+	}
+
+	stateValidationStr := stateValidationString(creator, state)
 	if !tradeStateValidationRegexp.MatchString(stateValidationStr) {
 		return fmt.Errorf("expected state to match one of %v, got %v",
 			tradeStateValidationRegexp, stateValidationStr)
@@ -203,37 +231,10 @@ func hasValidPostTradeAmount(p tfcPb.Player, gameData tfcPb.GameData, r tfcPb.Re
 	return nil
 }
 
-func handleTrade(APIstub shim.ChaincodeStubInterface,
-	gameData tfcPb.GameData, payload tfcPb.TradeTrxPayload) (tfcPb.GameData, error) {
-
-	err := assertTradePrecond(gameData, payload)
-	if err != nil {
-		return gameData, fmt.Errorf(
-			"trade preconditions not met: %s", err)
-	}
-
-	srcID := GetPlayerId(payload.Source)
-	destID := GetPlayerId(payload.Dest)
-	resID := GetResourceId(payload.Resource)
-
-	srcProfile := gameData.Profiles[srcID]
-	destProfile := gameData.Profiles[destID]
-
-	srcProfile.Resources[resID] -= payload.Amount
-	destProfile.Resources[resID] += payload.Amount
-
-	return gameData, assertTradePostcond(gameData, payload)
-}
-
-// TODO: implement this
-func assertDevelopmentPrecond() error {
-	return nil
-}
-
-func handleDev(APIstub shim.ChaincodeStubInterface,
+func handleDev(APIstub shim.ChaincodeStubInterface, creatorSign []byte,
 	gameData tfcPb.GameData, payload tfcPb.BuildTrxPayload) (tfcPb.GameData, error) {
 
-	err := assertDevelopmentPrecond()
+	err := assertDevelopmentPrecond(gameData, payload)
 	if err != nil {
 		return gameData, fmt.Errorf(
 			"development preconditions not met: %s", err)
@@ -247,6 +248,133 @@ func handleDev(APIstub shim.ChaincodeStubInterface,
 	}
 
 	return gameData, nil
+}
+
+var devStateValidationRegexp = regexp.MustCompile(
+	fmt.Sprintf("%vRDEV", tfcPb.Player_RED) +
+		fmt.Sprintf("|%vBDEV", tfcPb.Player_BLUE) +
+		fmt.Sprintf("|%vGDEV", tfcPb.Player_GREEN))
+
+// TODO: implement this
+func assertDevelopmentPrecond(gameData tfcPb.GameData, creatorSign []byte, payload tfcPb.BuildTrxPayload) error {
+
+	/*
+		1) correct state
+		2.e) empty and an edge point is one of the player settlements
+		2.s) empty and neighbouring intersections for distance rule: all surrounding intersections are free
+	*/
+
+	state := gameData.State
+	creator, err := getCreator(gameData, creatorSign)
+	if err != nil {
+		return err
+	}
+
+	stateValidationStr := stateValidationString(creator, state)
+	if !devStateValidationRegexp.MatchString(stateValidationStr) {
+		return fmt.Errorf("expected state to match one of %v, got %v",
+			devStateValidationRegexp, stateValidationStr)
+	}
+
+	switch payload.Type {
+	case tfcPb.BuildType_ROAD:
+		return assertBuildRoadPrecond(gameData, creator, *payload.BuildRoadPayload)
+	case tfcPb.BuildType_SETTLE:
+		return assertBuildSettlePrecond(gameData, creator, *payload.BuildSettlePayload)
+	}
+
+	return fmt.Errorf("Unkown build type %v", payload.Type)
+}
+
+var canBuildRoad = regexp.MustCompile(
+	fmt.Sprintf("(%s)|(%s)|(%s)",
+		fmt.Sprintf("%v%v.*(%v|%v)+.*",
+			tfcPb.Player_RED, tfcPb.Road_NOROAD,
+			tfcPb.Road_REDROAD, tfcPb.Settlement_REDSETTLE),
+		fmt.Sprintf("%v%v.*(%v|%v)+.*",
+			tfcPb.Player_GREEN, tfcPb.Road_NOROAD,
+			tfcPb.Road_GREENROAD, tfcPb.Settlement_GREENSETTLE),
+		fmt.Sprintf("%v%v.*(%v|%v)+.*",
+			tfcPb.Player_BLUE, tfcPb.Road_NOROAD,
+			tfcPb.Road_BLUEROAD, tfcPb.Settlement_BLUESETTLE)))
+
+func buildRoadValidString(p tfcPb.Player, r tfcPb.Road, s1, s2 tfcPb.Settlement, r1, r2, r3, r4 tfcPb.Road) string {
+	return fmt.Sprintf("%v%v%v%v%v%v%v%v", p, r, s1, s2, r1, r2, r3, r4)
+}
+
+func assertBuildRoadPrecond(gameData tfcPb.GameData, creator tfcPb.Player, payload tfcPb.BuildRoadPayload) error {
+	if creator != payload.Player {
+		return fmt.Errorf("expected creator to match trx player. expected %v, got %v", creator, payload.Player)
+	}
+
+	eID := uint32(payload.EdgeID)
+	E, exists := gameData.Board.Edges[eID]
+	if !exists {
+		return fmt.Errorf("gameboard edge %v does not exist", eID)
+	}
+
+	r := E.Attributes.Road
+	nE := gameData.Board.Edges[E.Next]
+
+	s1 := gameData.Board.Intersections[E.Origin].Attributes.Settlement
+	s2 := gameData.Board.Intersections[nE.Origin].Attributes.Settlement
+
+	r1 := nE.Attributes.Road
+	r2 := gameData.Board.Edges[E.Prev].Attributes.Road
+
+	twin := gameData.Board.Edges[E.Twin]
+	r3 := gameData.Board.Edges[twin.Prev].Attributes.Road
+	r4 := gameData.Board.Edges[twin.Next].Attributes.Road
+
+	validationS := buildRoadValidString(creator, r, s1, s2, r1, r2, r3, r4)
+
+	if !canBuildRoad.MatchString(validationS) {
+		return fmt.Errorf("could not build road for player %v, conditions not fulfilled: %s", creator,
+			fmt.Sprintf("existing road %v; surrounding settlements [%v, %v]; surrounding edges [%v, %v, %v, %v]",
+				r, s1, s2, r1, r2, r3, r4))
+	}
+
+	return nil
+}
+
+var canBuildSettle = regexp.MustCompile(
+	fmt.Sprintf("%v%v%v%v",
+		tfcPb.Settlement_NOSETTLE, tfcPb.Settlement_NOSETTLE,
+		tfcPb.Settlement_NOSETTLE, tfcPb.Settlement_NOSETTLE))
+
+func buildSettleValidString(s, s1, s2, s3 tfcPb.Settlement) string {
+	return fmt.Sprintf("%v%v%v%v", s, s1, s2, s3)
+}
+
+func assertBuildSettlePrecond(gameData tfcPb.GameData, creator tfcPb.Player, payload tfcPb.BuildSettlePayload) error {
+	if creator != payload.Player {
+		return fmt.Errorf("expected creator to match trx player. expected %v, got %v", creator, payload.Player)
+	}
+
+	sID := uint32(payload.SettleID)
+	I := gameData.Board.Intersections[sID]
+	s := I.Attributes.Settlement
+
+	iE := gameData.Board.Edges[I.IncidentEdge]
+	iID1 := gameData.Board.Edges[iE.Next].Origin
+	s1 := gameData.Board.Intersections[iID1].Attributes.Settlement
+
+	iID2 := gameData.Board.Edges[iE.Prev].Origin
+	s2 := gameData.Board.Intersections[iID2].Attributes.Settlement
+
+	iETwin := gameData.Board.Edges[iE.Twin]
+	iETwinNext := gameData.Board.Edges[iETwin.Next]
+	iID3 := gameData.Board.Edges[iETwinNext.Next].Origin
+	s3 := gameData.Board.Intersections[iID3].Attributes.Settlement
+
+	validationS := buildSettleValidString(s, s1, s2, s3)
+
+	if !canBuildRoad.MatchString(validationS) {
+		return fmt.Errorf("could not build road for player %v, conditions not fulfilled: %s", creator,
+			fmt.Sprintf("existing settle %v; surrounding settlements [%v, %v, %v, %v]", s, s1, s2, s3))
+	}
+
+	return nil
 }
 
 func buildSettlement(
@@ -378,4 +506,24 @@ func getLedgerData(APIstub shim.ChaincodeStubInterface) (*tfcPb.GameData, error)
 		return nil, fmt.Errorf("Could not unmarshal the proto contract. Error: %s", err.Error())
 	}
 	return gameData, nil
+}
+
+var playerExists = regexp.MustCompile(fmt.Sprintf("%v|%v|%v",
+	tfcPb.Player_BLUE, tfcPb.Player_GREEN, tfcPb.Player_RED))
+
+func getCreator(gameData tfcPb.GameData, creatorSign []byte) (tfcPb.Player, error) {
+	srcID := int32(-1)
+	for pID, sign := range gameData.IdentityMap {
+		if bytes.Equal(sign, creatorSign) {
+			srcID = pID
+			break
+		}
+	}
+	src := tfcPb.Player(srcID)
+
+	if !playerExists.MatchString(src.String()) {
+		return src, fmt.Errorf("unkown creator signature: %v", creatorSign)
+	}
+
+	return src, nil
 }
