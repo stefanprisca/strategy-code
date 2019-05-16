@@ -36,6 +36,14 @@ func (ab *ArgsBuilder) WithRollArgs() *ArgsBuilder {
 	return ab
 }
 
+func (ab *ArgsBuilder) WithNextArgs() *ArgsBuilder {
+	ab.trxArgs = &tfcPb.GameContractTrxArgs{
+		Type: tfcPb.GameTrxType_NEXT,
+	}
+
+	return ab
+}
+
 func (ab *ArgsBuilder) WithTradeArgs(src, dest tfcPb.Player, r tfcPb.Resource, a int32) *ArgsBuilder {
 	pLoad := &tfcPb.TradeTrxPayload{
 		Source:   src,
