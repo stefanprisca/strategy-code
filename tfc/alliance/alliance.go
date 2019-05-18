@@ -25,6 +25,10 @@ func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
 	}
 
 	allianceData.State = tfcPb.AllianceState_ACTIVE
+
+	// the lifespan will be reduced by one after the first next,
+	// so just add one up. No harm done
+	allianceData.Lifespan++
 	protoData, err := proto.Marshal(allianceData)
 	if err != nil {
 		return shim.Error(
@@ -56,21 +60,16 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 		return shim.Error(err.Error())
 	}
 
-	newAllianceData, err := reduceAllianceTerms(*allianceData, *trxArgs.CompletedTrxArgs)
-	if err != nil {
-		return shim.Error(err.Error())
-	}
+	newAllianceData := reduceAllianceTerms(*allianceData, trxArgs.CompletedTrxArgs)
+	newAllianceData = reduceLifespan(newAllianceData, trxArgs)
 
-	newAllianceState, err := computeNextAllianceState(newAllianceData, trxArgs.State)
-	if err != nil {
-		return shim.Error(err.Error())
-	}
+	newAllianceState := computeNextAllianceState(newAllianceData, trxArgs.State)
 
 	newAllianceData.State = newAllianceState
-	protoData, err := proto.Marshal(allianceData)
+	protoData, err := proto.Marshal(&newAllianceData)
 	if err != nil {
 		return shim.Error(
-			fmt.Sprintf("could not marshal the alliance data <%v>: %s", allianceData, err))
+			fmt.Sprintf("could not marshal the alliance data <%v>: %s", newAllianceData, err))
 	}
 
 	APIstub.PutPrivateData(AllianceCollection, ledgerKey, protoData)
@@ -78,12 +77,44 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 
 }
 
-func reduceAllianceTerms(allianceData tfcPb.AllianceData, trxArgs tfcPb.GameContractTrxArgs) (tfcPb.AllianceData, error) {
-	return allianceData, nil
+func reduceAllianceTerms(allianceData tfcPb.AllianceData, trxArgs *tfcPb.GameContractTrxArgs) tfcPb.AllianceData {
+
+	newTerms := []*tfcPb.GameContractTrxArgs{}
+	for i := range allianceData.Terms {
+		if proto.Equal(allianceData.Terms[i], trxArgs) {
+			continue
+		}
+		newTerms = append(newTerms, allianceData.Terms[i])
+	}
+
+	allianceData.Terms = newTerms
+	return allianceData
 }
 
-func computeNextAllianceState(allianceData tfcPb.AllianceData, gameState tfcPb.GameState) (tfcPb.AllianceState, error) {
-	return tfcPb.AllianceState_ACTIVE, nil
+func reduceLifespan(allianceData tfcPb.AllianceData, args *tfcPb.TrxCompletedArgs) tfcPb.AllianceData {
+
+	if args.State != allianceData.StartGameState {
+		return allianceData
+	}
+
+	if args.CompletedTrxArgs.Type != tfcPb.GameTrxType_NEXT {
+		return allianceData
+	}
+
+	allianceData.Lifespan--
+	return allianceData
+}
+
+func computeNextAllianceState(allianceData tfcPb.AllianceData, gameState tfcPb.GameState) tfcPb.AllianceState {
+	if len(allianceData.Terms) == 0 {
+		return tfcPb.AllianceState_COMPLETED
+	}
+
+	if allianceData.Lifespan == 0 {
+		return tfcPb.AllianceState_FAILED
+	}
+
+	return tfcPb.AllianceState_ACTIVE
 }
 
 func getAllianceLedgerData(APIstub shim.ChaincodeStubInterface, ledgerKey string) (*tfcPb.AllianceData, error) {
