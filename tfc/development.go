@@ -168,6 +168,7 @@ func buildRoad(
 
 	eID := uint32(payload.EdgeID)
 	edge := gameData.Board.Edges[eID]
+
 	switch payload.Player {
 	case tfcPb.Player_RED:
 		edge.Attributes.Road = tfcPb.Road_REDROAD
@@ -175,6 +176,11 @@ func buildRoad(
 		edge.Attributes.Road = tfcPb.Road_GREENROAD
 	case tfcPb.Player_BLUE:
 		edge.Attributes.Road = tfcPb.Road_BLUEROAD
+	}
+
+	twin, hasTwin := gameData.Board.Edges[edge.Twin]
+	if hasTwin {
+		twin.Attributes = edge.Attributes
 	}
 
 	return gameData, nil
