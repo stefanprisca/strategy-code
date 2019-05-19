@@ -8,6 +8,7 @@ require (
 	github.com/fsouza/go-dockerclient v1.4.0 // indirect
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
+	github.com/golang/protobuf v1.3.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0 // indirect
 	github.com/hashicorp/go-version v1.2.0 // indirect
 	github.com/hyperledger/fabric v1.4.1
@@ -18,7 +19,7 @@ require (
 	github.com/onsi/gomega v1.5.0 // indirect
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7 // indirect
 	github.com/spf13/viper v1.3.2 // indirect
-	github.com/stefanprisca/strategy-protobufs v0.0.0-20190505095635-b62e068f2a12
+	github.com/stefanprisca/strategy-protobufs v0.0.0-20190518070239-5e1d55254410
 	github.com/stretchr/testify v1.3.0
 	github.com/sykesm/zap-logfmt v0.0.2 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect

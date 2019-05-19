@@ -18,6 +18,10 @@ func (ab *ArgsBuilder) Build() ([][]byte, error) {
 	return [][]byte{protoArgs}, err
 }
 
+func (ab *ArgsBuilder) Args() *tfcPb.GameContractTrxArgs {
+	return ab.trxArgs
+}
+
 func (ab *ArgsBuilder) WithJoinArgs(player tfcPb.Player) *ArgsBuilder {
 	pLoad := &tfcPb.JoinTrxPayload{Player: player}
 	ab.trxArgs = &tfcPb.GameContractTrxArgs{
@@ -31,6 +35,14 @@ func (ab *ArgsBuilder) WithJoinArgs(player tfcPb.Player) *ArgsBuilder {
 func (ab *ArgsBuilder) WithRollArgs() *ArgsBuilder {
 	ab.trxArgs = &tfcPb.GameContractTrxArgs{
 		Type: tfcPb.GameTrxType_ROLL,
+	}
+
+	return ab
+}
+
+func (ab *ArgsBuilder) WithNextArgs() *ArgsBuilder {
+	ab.trxArgs = &tfcPb.GameContractTrxArgs{
+		Type: tfcPb.GameTrxType_NEXT,
 	}
 
 	return ab
@@ -54,7 +66,7 @@ func (ab *ArgsBuilder) WithTradeArgs(src, dest tfcPb.Player, r tfcPb.Resource, a
 func (ab *ArgsBuilder) WithBuildSettleArgs(player tfcPb.Player, sID uint32) *ArgsBuilder {
 	settlePLoad := &tfcPb.BuildSettlePayload{
 		Player:   player,
-		SettleID: int32(sID),
+		SettleID: sID,
 	}
 
 	ab.trxArgs = &tfcPb.GameContractTrxArgs{
@@ -71,7 +83,7 @@ func (ab *ArgsBuilder) WithBuildSettleArgs(player tfcPb.Player, sID uint32) *Arg
 func (ab *ArgsBuilder) WithBuildRoadArgs(player tfcPb.Player, eID uint32) *ArgsBuilder {
 	roadPLoad := &tfcPb.BuildRoadPayload{
 		Player: player,
-		EdgeID: int32(eID),
+		EdgeID: eID,
 	}
 
 	ab.trxArgs = &tfcPb.GameContractTrxArgs{

@@ -15,6 +15,7 @@
 package tfc
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"log"
@@ -76,21 +77,30 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 		return shim.Error(err.Error())
 	}
 
+	creatorSign, err := APIstub.GetCreator()
+	if err != nil {
+		return shim.Error(fmt.Sprintf(
+			"could not retrieve transaction creator: %s", err))
+	}
+
+	log.Printf("Handling transaction from state %s", gameData.State)
+
 	// Handle transaction logic
 	var newGameData tfcPb.GameData
 	switch trxArgs.Type {
 	case tfcPb.GameTrxType_JOIN:
-		newGameData, err = handleJoin(APIstub, *gameData, *trxArgs.JoinTrxPayload)
+		newGameData, err = handleJoin(APIstub, creatorSign, *gameData, *trxArgs.JoinTrxPayload)
 	case tfcPb.GameTrxType_ROLL:
 		// TODO
 		log.Println("ROLL is not yet implemented.")
 		newGameData = *gameData
 	case tfcPb.GameTrxType_NEXT:
 		log.Println("NEXT trx. Nothing to do here")
+		newGameData = *gameData
 	case tfcPb.GameTrxType_TRADE:
-		newGameData, err = handleTrade(APIstub, *gameData, *trxArgs.TradeTrxPayload)
+		newGameData, err = handleTrade(APIstub, creatorSign, *gameData, *trxArgs.TradeTrxPayload)
 	case tfcPb.GameTrxType_DEV:
-		newGameData, err = handleDev(APIstub, *gameData, *trxArgs.BuildTrxPayload)
+		newGameData, err = handleDev(APIstub, creatorSign, *gameData, *trxArgs.BuildTrxPayload)
 	default:
 		return shim.Error(fmt.Sprint("Unkown transaction type <>"))
 	}
@@ -113,6 +123,7 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 		return shim.Error(fmt.Sprintf("could not marshal game data: %s", err))
 	}
 	APIstub.PutState(CONTRACT_STATE_KEY, protoData)
+
 	return shim.Success(protoData)
 
 }
@@ -130,7 +141,7 @@ func assertJoinPrecond(gameData tfcPb.GameData, payload tfcPb.JoinTrxPayload) er
 	return nil
 }
 
-func handleJoin(APIstub shim.ChaincodeStubInterface,
+func handleJoin(APIstub shim.ChaincodeStubInterface, creatorSign []byte,
 	gameData tfcPb.GameData, payload tfcPb.JoinTrxPayload) (tfcPb.GameData, error) {
 
 	err := assertJoinPrecond(gameData, payload)
@@ -139,14 +150,9 @@ func handleJoin(APIstub shim.ChaincodeStubInterface,
 			"join preconditions not met: %s", err)
 	}
 
-	creator, err := APIstub.GetCreator()
-	if err != nil {
-		return gameData, fmt.Errorf(
-			"could not retrieve transaction creator: %s", err)
-	}
-
+	log.Printf("Joining player %v with sign %v", payload.Player, creatorSign)
 	playerID := GetPlayerId(payload.Player)
-	gameData.IdentityMap[playerID] = creator
+	gameData.IdentityMap[playerID] = creatorSign
 
 	// If there was no other player that joined until now
 	// the profiles will be nil
@@ -157,158 +163,12 @@ func handleJoin(APIstub shim.ChaincodeStubInterface,
 	return gameData, nil
 }
 
-func tradeStateValidationString(src tfcPb.Player, state tfcPb.GameState) string {
-	return fmt.Sprintf("%v%v", src, state)
-}
-
-var tradeStateValidationRegexp = regexp.MustCompile(
-	fmt.Sprintf("%vRTRADE", tfcPb.Player_RED) +
-		fmt.Sprintf("|%vBTRADE", tfcPb.Player_BLUE) +
-		fmt.Sprintf("|%vGTRADE", tfcPb.Player_GREEN))
-
-// TODO: implement this
-func assertTradePrecond(gameData tfcPb.GameData, payload tfcPb.TradeTrxPayload) error {
-	state := gameData.State
-	src := payload.Source
-	stateValidationStr := tradeStateValidationString(src, state)
-	if !tradeStateValidationRegexp.MatchString(stateValidationStr) {
-		return fmt.Errorf("expected state to match one of %v, got %v",
-			tradeStateValidationRegexp, stateValidationStr)
-	}
-
-	return nil
-}
-
-func assertTradePostcond(gameData tfcPb.GameData, payload tfcPb.TradeTrxPayload) error {
-	res := payload.Resource
-	if err := hasValidPostTradeAmount(payload.Source, gameData, res); err != nil {
-		return err
-	}
-
-	if err := hasValidPostTradeAmount(payload.Dest, gameData, res); err != nil {
-		return err
-	}
-	return nil
-}
-
-func hasValidPostTradeAmount(p tfcPb.Player, gameData tfcPb.GameData, r tfcPb.Resource) error {
-	rID := GetResourceId(r)
-	pP := *gameData.Profiles[GetPlayerId(p)]
-	available := pP.Resources[rID]
-	if available < 0 {
-		return fmt.Errorf("player %v does not have required %v resources: %s",
-			p, r,
-			fmt.Sprintf("available: %v", available))
-	}
-	return nil
-}
-
-func handleTrade(APIstub shim.ChaincodeStubInterface,
-	gameData tfcPb.GameData, payload tfcPb.TradeTrxPayload) (tfcPb.GameData, error) {
-
-	err := assertTradePrecond(gameData, payload)
-	if err != nil {
-		return gameData, fmt.Errorf(
-			"trade preconditions not met: %s", err)
-	}
-
-	srcID := GetPlayerId(payload.Source)
-	destID := GetPlayerId(payload.Dest)
-	resID := GetResourceId(payload.Resource)
-
-	srcProfile := gameData.Profiles[srcID]
-	destProfile := gameData.Profiles[destID]
-
-	srcProfile.Resources[resID] -= payload.Amount
-	destProfile.Resources[resID] += payload.Amount
-
-	return gameData, assertTradePostcond(gameData, payload)
-}
-
-// TODO: implement this
-func assertDevelopmentPrecond() error {
-	return nil
-}
-
-func handleDev(APIstub shim.ChaincodeStubInterface,
-	gameData tfcPb.GameData, payload tfcPb.BuildTrxPayload) (tfcPb.GameData, error) {
-
-	err := assertDevelopmentPrecond()
-	if err != nil {
-		return gameData, fmt.Errorf(
-			"development preconditions not met: %s", err)
-	}
-
-	switch payload.Type {
-	case tfcPb.BuildType_SETTLE:
-		return buildSettlement(gameData, *payload.BuildSettlePayload)
-	case tfcPb.BuildType_ROAD:
-		return buildRoad(gameData, *payload.BuildRoadPayload)
-	}
-
-	return gameData, nil
-}
-
-func buildSettlement(
-	gameData tfcPb.GameData, payload tfcPb.BuildSettlePayload) (tfcPb.GameData, error) {
-
-	playerID := GetPlayerId(payload.Player)
-	profile := gameData.Profiles[playerID]
-
-	for rID := range profile.Resources {
-		profile.Resources[rID]--
-	}
-
-	profile.Settlements--
-	profile.WinningPoints += 2
-
-	posID := uint32(payload.SettleID)
-	settleIntersection := gameData.Board.Intersections[posID]
-	switch payload.Player {
-	case tfcPb.Player_RED:
-		settleIntersection.Attributes.Settlement = tfcPb.Settlement_REDSETTLE
-	case tfcPb.Player_GREEN:
-		settleIntersection.Attributes.Settlement = tfcPb.Settlement_GREENSETTLE
-	case tfcPb.Player_BLUE:
-		settleIntersection.Attributes.Settlement = tfcPb.Settlement_BLUESETTLE
-	}
-
-	return gameData, nil
-}
-
-func buildRoad(
-	gameData tfcPb.GameData, payload tfcPb.BuildRoadPayload) (tfcPb.GameData, error) {
-
-	playerID := GetPlayerId(payload.Player)
-	profile := gameData.Profiles[playerID]
-
-	profile.Resources[GetResourceId(tfcPb.Resource_HILL)]--
-	profile.Resources[GetResourceId(tfcPb.Resource_FOREST)]--
-	profile.Roads--
-	profile.WinningPoints++
-
-	eID := uint32(payload.EdgeID)
-	edge := gameData.Board.Edges[eID]
-	switch payload.Player {
-	case tfcPb.Player_RED:
-		edge.Attributes.Road = tfcPb.Road_REDROAD
-	case tfcPb.Player_GREEN:
-		edge.Attributes.Road = tfcPb.Road_GREENROAD
-	case tfcPb.Player_BLUE:
-		edge.Attributes.Road = tfcPb.Road_BLUEROAD
-	}
-
-	return gameData, nil
-}
-
 func computeNextState(gameData tfcPb.GameData, txType tfcPb.GameTrxType) (tfcPb.GameState, error) {
 	st := gameData.State
 	switch {
 	// A player just joined, move to RROLL if all are in
 	case txType == tfcPb.GameTrxType_JOIN:
-		log.Printf("Computing st after Join. %v", gameData.Profiles)
 		if len(gameData.Profiles) == 3 {
-			log.Printf("Moved to %v", tfcPb.GameState_RROLL)
 			return tfcPb.GameState_RROLL, nil
 		}
 		return tfcPb.GameState_JOINING, nil
@@ -378,4 +238,24 @@ func getLedgerData(APIstub shim.ChaincodeStubInterface) (*tfcPb.GameData, error)
 		return nil, fmt.Errorf("Could not unmarshal the proto contract. Error: %s", err.Error())
 	}
 	return gameData, nil
+}
+
+var playerExists = regexp.MustCompile(fmt.Sprintf("%v|%v|%v",
+	tfcPb.Player_BLUE, tfcPb.Player_GREEN, tfcPb.Player_RED))
+
+func getCreator(gameData tfcPb.GameData, creatorSign []byte) (tfcPb.Player, error) {
+	srcID := int32(-1)
+	for pID, sign := range gameData.IdentityMap {
+		if bytes.Equal(sign, creatorSign) {
+			srcID = pID
+			break
+		}
+	}
+	src := tfcPb.Player(srcID)
+
+	if !playerExists.MatchString(src.String()) {
+		return src, fmt.Errorf("unkown creator signature: %v", creatorSign)
+	}
+
+	return src, nil
 }

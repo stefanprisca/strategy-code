@@ -125,6 +125,12 @@ github.com/stefanprisca/strategy-protobufs v0.0.0-20190502133108-0006c391fc13 h1
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190502133108-0006c391fc13/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190505095635-b62e068f2a12 h1:BSOLqfDMiqEKzh0i/V3jLTQjDRHEejtx8w3UjNiJz7A=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190505095635-b62e068f2a12/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190517153237-6141ce89c8c6 h1:oQmWviOKTgb7QuSpNu645Rjpfb/GgpegxzCWBi0TKgc=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190517153237-6141ce89c8c6/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190518051545-7c5ce9a2e295 h1:yIPdA0hs4GM8MeXy2/yKLHchn9BlP7f7e3yxtAdGEEc=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190518051545-7c5ce9a2e295/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190518070239-5e1d55254410 h1:1CEW6fEJ7FtzMo5vCapJc51/YlCVCeQQnsNTxxMlrUk=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190518070239-5e1d55254410/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1 h1:2vfRuCMp5sSVIDSqO8oNnWJq7mPa6KVP3iPIwFBuy8A=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

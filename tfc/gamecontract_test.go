@@ -2,6 +2,8 @@ package tfc
 
 import (
 	"fmt"
+	"math/rand"
+	"strconv"
 	"testing"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -36,6 +38,12 @@ func initContract(t *testing.T, cUUID string) *shim.MockStub {
 	return stub
 }
 
+var playerSignedProposals = map[tfcPb.Player]*pb.SignedProposal{
+	tfcPb.Player_RED:   &pb.SignedProposal{ProposalBytes: []byte{}, Signature: []byte("red")},
+	tfcPb.Player_BLUE:  &pb.SignedProposal{ProposalBytes: []byte{}, Signature: []byte("blue")},
+	tfcPb.Player_GREEN: &pb.SignedProposal{ProposalBytes: []byte{}, Signature: []byte("green")},
+}
+
 func TestInitGameContract(t *testing.T) {
 	cUUID := "01010101"
 	stub := initContract(t, cUUID)
@@ -62,10 +70,11 @@ func TestInitGameContract(t *testing.T) {
 func TestJoinGame(t *testing.T) {
 	cUUID := "01010101"
 	stub := initContract(t, cUUID)
-
+	p := tfcPb.Player_RED
+	pP := playerSignedProposals[tfcPb.Player_RED]
 	_, err := NewArgsBuilder().
-		WithJoinArgs(tfcPb.Player_RED).
-		invokeMock(stub)
+		WithJoinArgs(p).
+		invokeSignedMock(stub, pP)
 	require.NoError(t, err)
 
 	gameData, err := getLedgerData(stub)
@@ -87,20 +96,28 @@ func TestJoinGame(t *testing.T) {
 func TestRGBJoinGame(t *testing.T) {
 	cUUID := "01010101"
 	stub := initContract(t, cUUID)
-	joinRGB(t, stub)
+	newSI(stub).joinRGB(playerSignedProposals)
 
 	gameData, err := getLedgerData(stub)
 	require.NoError(t, err)
 
 	require.Equal(t, tfcPb.GameState_RROLL, gameData.State,
 		"unexpected state after one player joined")
+
+	redID := GetPlayerId(tfcPb.Player_RED)
+	expectedSign := playerSignedProposals[tfcPb.Player_RED].Signature
+	actualSign := gameData.IdentityMap[redID]
+	require.Equal(t, expectedSign, actualSign)
 }
 
 func TestTrade(t *testing.T) {
 	cUUID := "01010101"
 	stub := initContract(t, cUUID)
-	joinRGB(t, stub)
-	_, err := roll(stub)
+
+	err := newSI(stub).
+		joinRGB(playerSignedProposals).
+		roll(tfcPb.Player_RED).
+		getError()
 	require.NoError(t, err)
 
 	src, dest := tfcPb.Player_RED, tfcPb.Player_BLUE
@@ -108,12 +125,6 @@ func TestTrade(t *testing.T) {
 	amount := int32(2)
 	assertCorrectTrade(t, stub, src, dest, resource, amount)
 	assertCorrectTrade(t, stub, src, dest, resource, -amount)
-}
-
-func roll(stub *shim.MockStub) (pb.Response, error) {
-	return NewArgsBuilder().
-		WithRollArgs().
-		invokeMock(stub)
 }
 
 func assertCorrectTrade(t *testing.T, stub *shim.MockStub,
@@ -133,7 +144,7 @@ func assertCorrectTrade(t *testing.T, stub *shim.MockStub,
 	_, err = NewArgsBuilder().
 		WithTradeArgs(src, dest,
 			resource, amount).
-		invokeMock(stub)
+		invokeSignedMock(stub, playerSignedProposals[src])
 	require.NoError(t, err)
 
 	gameData, err = getLedgerData(stub)
@@ -155,19 +166,27 @@ func TestBuildSettle(t *testing.T) {
 	cUUID := "01010101"
 	stub := initContract(t, cUUID)
 
-	joinRGB(t, stub)
+	err := newSI(stub).
+		joinRGB(playerSignedProposals).
+		roll(tfcPb.Player_RED).
+		next(tfcPb.Player_RED).
+		getError()
+
+	require.NoError(t, err)
 
 	sID := pointHash(tfc.Coord{X: 0, Y: 0})
 	eID := edgeHash(tfc.Coord{X: 0, Y: 0}, N)
 
-	_, err := NewArgsBuilder().
-		WithBuildSettleArgs(tfcPb.Player_RED, sID).
-		invokeMock(stub)
+	player := tfcPb.Player_RED
+	proposal := playerSignedProposals[player]
+	_, err = NewArgsBuilder().
+		WithBuildSettleArgs(player, sID).
+		invokeSignedMock(stub, proposal)
 	require.NoError(t, err)
 
 	_, err = NewArgsBuilder().
-		WithBuildRoadArgs(tfcPb.Player_RED, eID).
-		invokeMock(stub)
+		WithBuildRoadArgs(player, eID).
+		invokeSignedMock(stub, proposal)
 	require.NoError(t, err)
 
 	gameData, err := getLedgerData(stub)
@@ -194,27 +213,78 @@ func TestBuildSettle(t *testing.T) {
 		"expected build to increase winning points")
 }
 
-func joinRGB(t *testing.T, stub *shim.MockStub) {
-	for _, p := range []tfcPb.Player{
-		tfcPb.Player_RED, tfcPb.Player_BLUE, tfcPb.Player_GREEN} {
-
-		// proposal := pb.SignedProposal{ProposalBytes: , Signature:}
-		_, err := NewArgsBuilder().
-			WithJoinArgs(p).
-			invokeMock(stub)
-		require.NoError(t, err)
-	}
+type stateIterator struct {
+	stub *shim.MockStub
+	err  error
 }
 
-func (ab *ArgsBuilder) invokeMock(stub *shim.MockStub) (pb.Response, error) {
+func newSI(stub *shim.MockStub) *stateIterator {
+	return &stateIterator{stub, nil}
+}
+
+func (si *stateIterator) getError() error {
+	return si.err
+}
+
+func (si *stateIterator) joinRGB(signedProposals map[tfcPb.Player]*pb.SignedProposal) *stateIterator {
+
+	if si.err != nil {
+		return si
+	}
+
+	for _, p := range []tfcPb.Player{
+		tfcPb.Player_RED, tfcPb.Player_BLUE, tfcPb.Player_GREEN} {
+		proposal := signedProposals[p]
+		_, err := NewArgsBuilder().
+			WithJoinArgs(p).
+			invokeSignedMock(si.stub, proposal)
+		if err != nil {
+			si.err = err
+			return si
+		}
+	}
+
+	return si
+}
+
+func (si *stateIterator) roll(p tfcPb.Player) *stateIterator {
+	if si.err != nil {
+		return si
+	}
+	pP := playerSignedProposals[p]
+	_, err := NewArgsBuilder().
+		WithRollArgs().
+		invokeSignedMock(si.stub, pP)
+	si.err = err
+	return si
+}
+
+func (si *stateIterator) next(p tfcPb.Player) *stateIterator {
+	if si.err != nil {
+		return si
+	}
+
+	pP := playerSignedProposals[p]
+	_, err := NewArgsBuilder().
+		WithNextArgs().
+		invokeSignedMock(si.stub, pP)
+
+	si.err = err
+	return si
+}
+
+func (ab *ArgsBuilder) invokeSignedMock(stub *shim.MockStub, sp *pb.SignedProposal) (pb.Response, error) {
 	protoArgs, err := ab.Build()
 	if err != nil {
 		return pb.Response{}, err
 	}
 
+	n := rand.Int63()
+	uuid := strconv.FormatInt(n, 8)
+
 	trxargs := [][]byte{[]byte("Test")}
 	trxargs = append(trxargs, protoArgs[0])
-	resp := stub.MockInvoke("0001", trxargs)
+	resp := stub.MockInvokeWithSignedProposal(uuid, trxargs, sp)
 	if shim.OK != resp.Status {
 		return resp,
 			fmt.Errorf("unexpected status: expected %v, got %v. message: %s",
