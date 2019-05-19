@@ -177,28 +177,19 @@ func computeNextState(gameData tfcPb.GameData, txType tfcPb.GameTrxType) (tfcPb.
 		switch st {
 		case tfcPb.GameState_RROLL:
 			return tfcPb.GameState_RTRADE, nil
-		case tfcPb.GameState_BROLL:
-			return tfcPb.GameState_BTRADE, nil
 		case tfcPb.GameState_GROLL:
 			return tfcPb.GameState_GTRADE, nil
+		case tfcPb.GameState_BROLL:
+			return tfcPb.GameState_BTRADE, nil
 		}
 
 	case txType == tfcPb.GameTrxType_NEXT:
 		switch st {
-		case tfcPb.GameState_RROLL:
-			return tfcPb.GameState_RTRADE, nil
 		case tfcPb.GameState_RTRADE:
 			return tfcPb.GameState_RDEV, nil
 		case tfcPb.GameState_RDEV:
 			if won(tfcPb.Player_RED, gameData) {
 				return tfcPb.GameState_RWON, nil
-			}
-			return tfcPb.GameState_BROLL, nil
-		case tfcPb.GameState_BTRADE:
-			return tfcPb.GameState_BDEV, nil
-		case tfcPb.GameState_BDEV:
-			if won(tfcPb.Player_BLUE, gameData) {
-				return tfcPb.GameState_BWON, nil
 			}
 			return tfcPb.GameState_GROLL, nil
 		case tfcPb.GameState_GTRADE:
@@ -206,6 +197,13 @@ func computeNextState(gameData tfcPb.GameData, txType tfcPb.GameTrxType) (tfcPb.
 		case tfcPb.GameState_GDEV:
 			if won(tfcPb.Player_GREEN, gameData) {
 				return tfcPb.GameState_GWON, nil
+			}
+			return tfcPb.GameState_BROLL, nil
+		case tfcPb.GameState_BTRADE:
+			return tfcPb.GameState_BDEV, nil
+		case tfcPb.GameState_BDEV:
+			if won(tfcPb.Player_BLUE, gameData) {
+				return tfcPb.GameState_BWON, nil
 			}
 			return tfcPb.GameState_RROLL, nil
 		}

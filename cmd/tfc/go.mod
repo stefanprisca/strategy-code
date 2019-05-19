@@ -4,5 +4,5 @@ go 1.12
 
 require (
 	github.com/hyperledger/fabric v1.4.1
-	github.com/stefanprisca/strategy-code/tfc v0.0.0-20190508074439-976bece32b20
+	github.com/stefanprisca/strategy-code/tfc v0.0.0-20190519101532-421e923decd9
 )

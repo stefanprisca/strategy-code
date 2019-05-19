@@ -213,6 +213,55 @@ func TestBuildSettle(t *testing.T) {
 		"expected build to increase winning points")
 }
 
+type scriptStep struct {
+	ab *ArgsBuilder
+	p  tfcPb.Player
+}
+
+func scriptTFC() []scriptStep {
+
+	p1C, p2C, p3C := tfcPb.Player_RED, tfcPb.Player_GREEN, tfcPb.Player_BLUE
+
+	s := []scriptStep{
+		{NewArgsBuilder().WithJoinArgs(p2C), p2C},
+		{NewArgsBuilder().WithJoinArgs(p1C), p1C},
+		{NewArgsBuilder().WithJoinArgs(p3C), p3C},
+		{NewArgsBuilder().WithRollArgs(), p1C},
+		{NewArgsBuilder().WithTradeArgs(p1C, p2C, tfcPb.Resource_CAMP, 2), p1C},
+		{NewArgsBuilder().WithTradeArgs(p1C, p3C, tfcPb.Resource_HILL, -2), p1C},
+		{NewArgsBuilder().WithNextArgs(), p1C},
+		{NewArgsBuilder().WithNextArgs(), p1C},
+		{NewArgsBuilder().WithRollArgs(), p2C},
+		{NewArgsBuilder().WithTradeArgs(p2C, p1C, tfcPb.Resource_CAMP, 2), p2C},
+		{NewArgsBuilder().WithTradeArgs(p2C, p3C, tfcPb.Resource_PASTURE, -2), p2C},
+		{NewArgsBuilder().WithNextArgs(), p2C},
+		{NewArgsBuilder().WithNextArgs(), p2C},
+		{NewArgsBuilder().WithRollArgs(), p3C},
+		{NewArgsBuilder().WithTradeArgs(p3C, p1C, tfcPb.Resource_HILL, -2), p3C},
+		{NewArgsBuilder().WithTradeArgs(p3C, p2C, tfcPb.Resource_PASTURE, -2), p3C},
+		{NewArgsBuilder().WithNextArgs(), p3C},
+		{NewArgsBuilder().WithNextArgs(), p3C},
+	}
+
+	for i := 0; i < 5; i++ {
+		s = append(s, s[3:]...)
+	}
+
+	return s
+}
+
+func TestTFCScript(t *testing.T) {
+	cUUID := "01010101"
+	stub := initContract(t, cUUID)
+
+	script := scriptTFC()
+
+	for _, ss := range script {
+		_, err := ss.ab.invokeSignedMock(stub, playerSignedProposals[ss.p])
+		require.NoError(t, err)
+	}
+}
+
 type stateIterator struct {
 	stub *shim.MockStub
 	err  error
