@@ -104,6 +104,8 @@ github.com/stefanprisca/strategy-code/tfc v0.0.0-20190508074439-976bece32b20 h1:
 github.com/stefanprisca/strategy-code/tfc v0.0.0-20190508074439-976bece32b20/go.mod h1:vQMr4d5f87ZqP/K1kuzeujHoglXuKzJwU2qD3TMh8IA=
 github.com/stefanprisca/strategy-code/tfc v0.0.0-20190519101532-421e923decd9 h1:eSPjE+4F4XZrTYg+6mB8f4E4hTKeXQpTxsNTJv7U3D4=
 github.com/stefanprisca/strategy-code/tfc v0.0.0-20190519101532-421e923decd9/go.mod h1:Cw7Q4G3/1EGoDhkTHhe0vFXW65DDnvTzo/r8yHafiq0=
+github.com/stefanprisca/strategy-code/tfc v0.0.0-20190519120000-8a8ff665d9d9 h1:UF84vTax1oFJok0FPG9c8ZpcQ4lIW/Nitz1GFTKmWzU=
+github.com/stefanprisca/strategy-code/tfc v0.0.0-20190519120000-8a8ff665d9d9/go.mod h1:Cw7Q4G3/1EGoDhkTHhe0vFXW65DDnvTzo/r8yHafiq0=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190505095635-b62e068f2a12 h1:BSOLqfDMiqEKzh0i/V3jLTQjDRHEejtx8w3UjNiJz7A=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190505095635-b62e068f2a12/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190518070239-5e1d55254410 h1:1CEW6fEJ7FtzMo5vCapJc51/YlCVCeQQnsNTxxMlrUk=

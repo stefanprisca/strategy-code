@@ -5,7 +5,7 @@ import (
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
-	alli "github.com/stefanprisca/strategy-code/tfc"
+	alli "github.com/stefanprisca/strategy-code/tfc/alliance"
 )
 
 // Dummy struct for hyperledger

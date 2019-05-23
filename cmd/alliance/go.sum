@@ -103,8 +103,12 @@ github.com/spf13/viper v1.3.2/go.mod h1:ZiWeW+zYFKm7srdB9IoDzzZXaJaI5eL9QjNiN/DM
 github.com/stefanprisca/strategy-code v0.0.0-20190515102458-79ed99e8be0b h1:V6GfGr7TnxZ8ba9aQiJCaPOWqG+Ei1FdyN/hoPuJO/w=
 github.com/stefanprisca/strategy-code/tfc v0.0.0-20190515102458-79ed99e8be0b h1:swxcdrcAdP2TPzQM9rxsorOFtCG1d+dSPvchJn7tVv0=
 github.com/stefanprisca/strategy-code/tfc v0.0.0-20190515102458-79ed99e8be0b/go.mod h1:vQMr4d5f87ZqP/K1kuzeujHoglXuKzJwU2qD3TMh8IA=
+github.com/stefanprisca/strategy-code/tfc v0.0.0-20190519120000-8a8ff665d9d9 h1:UF84vTax1oFJok0FPG9c8ZpcQ4lIW/Nitz1GFTKmWzU=
+github.com/stefanprisca/strategy-code/tfc v0.0.0-20190519120000-8a8ff665d9d9/go.mod h1:Cw7Q4G3/1EGoDhkTHhe0vFXW65DDnvTzo/r8yHafiq0=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190505095635-b62e068f2a12 h1:BSOLqfDMiqEKzh0i/V3jLTQjDRHEejtx8w3UjNiJz7A=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190505095635-b62e068f2a12/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190518070239-5e1d55254410 h1:1CEW6fEJ7FtzMo5vCapJc51/YlCVCeQQnsNTxxMlrUk=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190518070239-5e1d55254410/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=

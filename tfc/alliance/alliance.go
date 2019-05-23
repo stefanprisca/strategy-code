@@ -16,7 +16,8 @@ func getAllianceLedgerKey(cID uint32) string {
 }
 
 func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
-	protoArgs := APIstub.GetArgs()[1]
+	print(APIstub.GetArgs())
+	protoArgs := APIstub.GetArgs()[0]
 	allianceData := &tfcPb.AllianceData{}
 	err := proto.Unmarshal(protoArgs, allianceData)
 	if err != nil {
