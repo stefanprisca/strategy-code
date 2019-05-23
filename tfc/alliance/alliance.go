@@ -2,6 +2,7 @@ package alliance
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -16,8 +17,8 @@ func getAllianceLedgerKey(cID uint32) string {
 }
 
 func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
-	print(APIstub.GetArgs())
-	protoArgs := APIstub.GetArgs()[0]
+	log.Println(APIstub.GetArgs())
+	protoArgs := APIstub.GetArgs()[1]
 	allianceData := &tfcPb.AllianceData{}
 	err := proto.Unmarshal(protoArgs, allianceData)
 	if err != nil {
@@ -38,7 +39,8 @@ func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
 
 	allianceContractID := allianceData.ContractID
 	ledgerKey := getAllianceLedgerKey(allianceContractID)
-	APIstub.PutPrivateData(AllianceCollection, ledgerKey, protoData)
+	// Cannot put private data in the init...
+	APIstub.PutState(ledgerKey, protoData)
 	return shim.Success(protoData)
 }
 
@@ -120,7 +122,7 @@ func computeNextAllianceState(allianceData tfcPb.AllianceData, gameState tfcPb.G
 
 func getAllianceLedgerData(APIstub shim.ChaincodeStubInterface, ledgerKey string) (*tfcPb.AllianceData, error) {
 
-	protoData, err := APIstub.GetPrivateData(AllianceCollection, ledgerKey)
+	protoData, err := APIstub.GetState(ledgerKey)
 	if err != nil {
 		return nil, err
 	}
