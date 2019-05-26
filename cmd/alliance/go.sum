@@ -107,10 +107,16 @@ github.com/stefanprisca/strategy-code/tfc v0.0.0-20190519120000-8a8ff665d9d9 h1:
 github.com/stefanprisca/strategy-code/tfc v0.0.0-20190519120000-8a8ff665d9d9/go.mod h1:Cw7Q4G3/1EGoDhkTHhe0vFXW65DDnvTzo/r8yHafiq0=
 github.com/stefanprisca/strategy-code/tfc v0.0.0-20190523134131-0e565b72f206 h1:KH2NGLNh+/8V3Eqa/8QX91QpAhfv4sVDreWTxuCCwQc=
 github.com/stefanprisca/strategy-code/tfc v0.0.0-20190523134131-0e565b72f206/go.mod h1:Cw7Q4G3/1EGoDhkTHhe0vFXW65DDnvTzo/r8yHafiq0=
+github.com/stefanprisca/strategy-code/tfc v0.0.0-20190523135922-1891d5cabd84 h1:9LGumglgaOJCAQnC0fKFEv4Av66o8vQBy90BNOSK2dg=
+github.com/stefanprisca/strategy-code/tfc v0.0.0-20190523135922-1891d5cabd84/go.mod h1:Cw7Q4G3/1EGoDhkTHhe0vFXW65DDnvTzo/r8yHafiq0=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190505095635-b62e068f2a12 h1:BSOLqfDMiqEKzh0i/V3jLTQjDRHEejtx8w3UjNiJz7A=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190505095635-b62e068f2a12/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190518070239-5e1d55254410 h1:1CEW6fEJ7FtzMo5vCapJc51/YlCVCeQQnsNTxxMlrUk=
 github.com/stefanprisca/strategy-protobufs v0.0.0-20190518070239-5e1d55254410/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190526120506-a6fb3c7779ac h1:dmhi88E/w1D/WNbsirAL5DW4+r2NNp+iBBurpYRoBig=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190526120506-a6fb3c7779ac/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190526122351-ad5e59a8ed29 h1:WWXc2+iF4SPQLRRi5skAexEMgEOzB6DUb2amgQQdWwg=
+github.com/stefanprisca/strategy-protobufs v0.0.0-20190526122351-ad5e59a8ed29/go.mod h1:jGcKHRgztgb0wUT9Lgmp3Gz3NEyteZDXMixB6TZiimA=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
