@@ -7,7 +7,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
-	alli "github.com/stefanprisca/strategy-code/tfc/alliance"
+	alli "github.com/stefanprisca/strategy-code/alliance"
 	tfcPb "github.com/stefanprisca/strategy-protobufs/tfc"
 )
 
@@ -35,18 +35,24 @@ func (gc *AllianceChaincode) Invoke(APIstub shim.ChaincodeStubInterface) pb.Resp
 			fmt.Sprintf("could not unmarshal arguments proto message <%v>: %s", protoArgs, err))
 	}
 
-	collection, err := getCollection(trxArgs.Data.Allies)
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-
 	fcn := trxArgs.Type
 	switch fcn {
 	case tfcPb.AllianceTrxType_INIT:
+		collection, err := getCollection(trxArgs.InitPayload.Allies)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
 		return alli.HandleInit(APIstub, collection)
+	case tfcPb.AllianceTrxType_INVOKE:
+		collection, err := getCollection(trxArgs.InitPayload.Allies)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		return alli.HandleInvoke(APIstub, collection)
 	}
 
-	return alli.HandleInvoke(APIstub, collection)
+	return shim.Error("unkown transaction type")
 }
 
 var RGColRegex = regexp.MustCompile(fmt.Sprintf("%v%v|%v%v",
