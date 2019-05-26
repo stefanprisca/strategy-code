@@ -17,16 +17,18 @@ import (
 	tfcPb "github.com/stefanprisca/strategy-protobufs/tfc"
 )
 
+var AllianceCollection = "alliances"
+
 // Dummy struct for hyperledger
 type MockContract struct {
 }
 
 func (gc *MockContract) Init(APIstub shim.ChaincodeStubInterface) pb.Response {
-	return HandleInit(APIstub)
+	return HandleInit(APIstub, AllianceCollection)
 }
 
 func (gc *MockContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response {
-	return HandleInvoke(APIstub)
+	return HandleInvoke(APIstub, AllianceCollection)
 }
 
 func initContract(t *testing.T, cUUID uint32, terms ...*tfcPb.GameContractTrxArgs) *shim.MockStub {
@@ -50,7 +52,7 @@ func TestInitAlliance(t *testing.T) {
 	stub := initContract(t, cuuid)
 
 	ledgerKey := getAllianceLedgerKey(cuuid)
-	allianceData, err := getAllianceLedgerData(stub, ledgerKey)
+	allianceData, err := getAllianceLedgerData(stub, AllianceCollection, ledgerKey)
 	require.NoError(t, err)
 	log.Println(allianceData)
 
@@ -71,7 +73,7 @@ func TestAllianceCompletes(t *testing.T) {
 	require.NoError(t, err)
 
 	ledgerKey := getAllianceLedgerKey(cuuid)
-	allianceData, err := getAllianceLedgerData(stub, ledgerKey)
+	allianceData, err := getAllianceLedgerData(stub, AllianceCollection, ledgerKey)
 	require.NoError(t, err)
 	log.Println(allianceData)
 
@@ -102,7 +104,7 @@ func TestAllianceFails(t *testing.T) {
 	}
 
 	ledgerKey := getAllianceLedgerKey(cuuid)
-	allianceData, err := getAllianceLedgerData(stub, ledgerKey)
+	allianceData, err := getAllianceLedgerData(stub, AllianceCollection, ledgerKey)
 	require.NoError(t, err)
 	log.Println(allianceData)
 
@@ -132,7 +134,11 @@ func (ab *initArgsBuilder) AddTerm(term *tfcPb.GameContractTrxArgs) *initArgsBui
 }
 
 func (ab *initArgsBuilder) InitMock(stub *shim.MockStub) error {
-	protoData, err := proto.Marshal(ab.allianceData)
+
+	trxArgs := &tfcPb.AllianceTrxArgs{
+		InitPayload: ab.allianceData,
+	}
+	protoData, err := proto.Marshal(trxArgs)
 	if err != nil {
 		return err
 	}
@@ -165,7 +171,12 @@ func (tcb *trxCompletedBuilder) WithArgs(arg *tfcPb.GameContractTrxArgs) *trxCom
 
 func (tcb *trxCompletedBuilder) MockInvoke(stub *shim.MockStub, observerID uint32) error {
 	tcb.trxCompletedArgs.ObserverID = observerID
-	protoData, err := proto.Marshal(tcb.trxCompletedArgs)
+
+	alliTrxArgs := &tfcPb.AllianceTrxArgs{
+		InvokePayload: tcb.trxCompletedArgs,
+	}
+
+	protoData, err := proto.Marshal(alliTrxArgs)
 	if err != nil {
 		return err
 	}

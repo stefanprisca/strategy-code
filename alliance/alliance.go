@@ -10,34 +10,21 @@ import (
 	tfcPb "github.com/stefanprisca/strategy-protobufs/tfc"
 )
 
-// Dummy struct for hyperledger
-type GameContract struct {
-}
-
-func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) pb.Response {
-	return HandleInit(APIstub)
-}
-
-func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response {
-	return HandleInvoke(APIstub)
-}
-
-var AllianceCollection = "alliances"
-
 func getAllianceLedgerKey(cID uint32) string {
 	return fmt.Sprintf("alliance%v", cID)
 }
 
-func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
+func HandleInit(APIstub shim.ChaincodeStubInterface, collection string) pb.Response {
 	log.Println(APIstub.GetArgs())
 	protoArgs := APIstub.GetArgs()[1]
-	allianceData := &tfcPb.AllianceData{}
-	err := proto.Unmarshal(protoArgs, allianceData)
+	trxArgs := &tfcPb.AllianceTrxArgs{}
+	err := proto.Unmarshal(protoArgs, trxArgs)
 	if err != nil {
 		return shim.Error(
 			fmt.Sprintf("could not unmarshal arguments proto message <%v>: %s", protoArgs, err))
 	}
 
+	allianceData := trxArgs.InitPayload
 	allianceData.State = tfcPb.AllianceState_ACTIVE
 
 	// the lifespan will be reduced by one after the first next,
@@ -53,7 +40,7 @@ func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
 	ledgerKey := getAllianceLedgerKey(allianceContractID)
 	// Cannot put private data in the init...
 	log.Println("Putting state on ledger....")
-	err = APIstub.PutState(ledgerKey, protoData)
+	err = APIstub.PutPrivateData(collection, ledgerKey, protoData)
 	if err != nil {
 		return shim.Error(
 			fmt.Sprintf("could not save the state on the ledger: %s", err))
@@ -62,21 +49,23 @@ func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
 	return shim.Success(protoData)
 }
 
-func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
+func HandleInvoke(APIstub shim.ChaincodeStubInterface, collection string) pb.Response {
 
 	protoArgs := APIstub.GetArgs()[1]
-	trxArgs := &tfcPb.TrxCompletedArgs{}
-	err := proto.Unmarshal(protoArgs, trxArgs)
+	alliTrxArgs := &tfcPb.AllianceTrxArgs{}
+	err := proto.Unmarshal(protoArgs, alliTrxArgs)
 	if err != nil {
 		return shim.Error(
 			fmt.Sprintf("could not unmarshal arguments proto message <%v>: %s", protoArgs, err))
 	}
 
 	// TODO: Assert preconditions
+
+	trxArgs := alliTrxArgs.InvokePayload
 	allianceContractID := trxArgs.ObserverID
 	ledgerKey := getAllianceLedgerKey(allianceContractID)
 
-	allianceData, err := getAllianceLedgerData(APIstub, ledgerKey)
+	allianceData, err := getAllianceLedgerData(APIstub, collection, ledgerKey)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
@@ -93,7 +82,7 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 			fmt.Sprintf("could not marshal the alliance data <%v>: %s", newAllianceData, err))
 	}
 
-	APIstub.PutState(ledgerKey, protoData)
+	APIstub.PutPrivateData(collection, ledgerKey, protoData)
 	return shim.Success(protoData)
 
 }
@@ -105,6 +94,7 @@ func reduceAllianceTerms(allianceData tfcPb.AllianceData, trxArgs *tfcPb.GameCon
 		if proto.Equal(allianceData.Terms[i], trxArgs) {
 			continue
 		}
+
 		newTerms = append(newTerms, allianceData.Terms[i])
 	}
 
@@ -138,9 +128,9 @@ func computeNextAllianceState(allianceData tfcPb.AllianceData, gameState tfcPb.G
 	return tfcPb.AllianceState_ACTIVE
 }
 
-func getAllianceLedgerData(APIstub shim.ChaincodeStubInterface, ledgerKey string) (*tfcPb.AllianceData, error) {
+func getAllianceLedgerData(APIstub shim.ChaincodeStubInterface, collection, ledgerKey string) (*tfcPb.AllianceData, error) {
 
-	protoData, err := APIstub.GetState(ledgerKey)
+	protoData, err := APIstub.GetPrivateData(collection, ledgerKey)
 	if err != nil {
 		return nil, err
 	}
@@ -151,14 +141,4 @@ func getAllianceLedgerData(APIstub shim.ChaincodeStubInterface, ledgerKey string
 		return nil, fmt.Errorf("Could not unmarshal the proto contract. Error: %s", err.Error())
 	}
 	return allianceData, nil
-}
-
-// The main function is only relevant in unit test mode. Only included here for completeness.
-func main() {
-
-	// Create a new Smart Contract
-	err := shim.Start(new(GameContract))
-	if err != nil {
-		fmt.Printf("Error creating new Smart Contract: %s", err)
-	}
 }
