@@ -1,0 +1,16 @@
+syntax="proto3";
+package tfc;
+
+import "google/protobuf/timestamp.proto";
+
+enum BattleAction {
+    ATTACK = 0;
+    DEFFEND = 1;
+}
+
+message BattleTrxPayload {
+    BattleAction action = 1;
+    int32 nOfUnits = 2;
+
+    google.protobuf.Timestamp last_updated = 9;
+}

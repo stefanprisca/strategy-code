@@ -1,0 +1,72 @@
+syntax="proto3";
+package tfc;
+
+import "gamedata.proto";
+import "battlecontract.proto";
+import "google/protobuf/timestamp.proto";
+
+message JoinTrxPayload {
+    Player player = 1;
+}
+
+message TradeTrxPayload {
+    Player source = 1;
+    Player dest = 2;
+    Resource resource = 3;
+    int32 amount = 4;
+
+    google.protobuf.Timestamp last_updated = 9;
+}
+
+enum BuildType {
+    ROAD = 0;
+    SETTLE = 1;
+}
+
+message BuildRoadPayload {
+    uint32 edgeID = 1;
+    Player player = 2;
+
+    google.protobuf.Timestamp last_updated = 9;
+}
+
+message BuildSettlePayload {
+    uint32 settleID = 1;
+    Player player = 2;
+
+    google.protobuf.Timestamp last_updated = 9;
+}
+
+message BuildTrxPayload {
+    BuildType type = 1;
+    BuildRoadPayload buildRoadPayload = 2;
+    BuildSettlePayload buildSettlePayload = 3;
+
+    google.protobuf.Timestamp last_updated = 9;
+}
+
+enum GameTrxType {
+    JOIN = 0;
+    NEXT = 1;
+    ROLL = 2;
+    TRADE = 3;
+    DEV = 4;
+    BATTLE = 5;
+    REGISTERL = 6;
+}
+
+message GameContractTrxArgs {
+    GameTrxType type = 1;
+    TradeTrxPayload tradeTrxPayload = 2;
+    BuildTrxPayload buildTrxPayload = 3;
+    BattleTrxPayload battleTrxPayload = 4;
+    JoinTrxPayload joinTrxPayload = 5;
+
+    google.protobuf.Timestamp last_updated = 9;
+}
+
+message GameContractInitArgs {
+    bytes uuid = 1;
+
+    google.protobuf.Timestamp last_updated = 9;
+}
