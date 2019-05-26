@@ -1,0 +1,144 @@
+// Copyright 2019 Stefan Prisca
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+
+// 	http://www.apache.org/licenses/LICENSE-2.0
+
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax="proto3";
+package tfc;
+
+import "google/protobuf/timestamp.proto";
+
+enum Settlement { 
+        NOSETTLE = 0;
+        REDSETTLE = 1;
+        GREENSETTLE = 2;
+        BLUESETTLE = 3;
+    }
+
+message IntersectionAttributes {
+    Settlement settlement = 1;
+}
+
+message Coord {
+	int32 X = 1;
+	int32 Y = 2;
+	int32 Z = 3;
+}
+
+
+message Intersection {
+    uint32 id = 1;
+    uint32 incidentEdge = 2;
+    IntersectionAttributes attributes = 3;
+
+    Coord coordinates = 5;
+
+    google.protobuf.Timestamp last_updated = 9;     
+}
+
+enum Resource {
+    HILL = 0;
+    FOREST = 1;
+    MOUNTAIN = 2;
+    FIELD = 3;
+    PASTURE = 4;
+    CAMP = 5;
+}
+
+message TileAttributes {
+    Resource resource = 1;
+    int32 rollNumber = 2;
+
+    google.protobuf.Timestamp last_updated = 9;
+}
+
+message Tile {
+    uint32 id = 1;
+    uint32 outerComponent = 2;
+
+    TileAttributes attributes = 3;
+
+    google.protobuf.Timestamp last_updated = 9;
+}
+
+enum Road { 
+        NOROAD = 0;
+        REDROAD = 1;
+        GREENROAD = 2;
+        BLUEROAD = 3;
+    }
+
+message EdgeAttributes {
+    Road road = 1;
+}
+
+message Edge {
+    uint32 id = 1;
+    uint32 origin = 2;
+    uint32 twin = 3;
+    uint32 incidentTile = 4;
+    uint32 next = 5;
+    uint32 prev = 6;
+    string orientation = 8;
+
+    EdgeAttributes attributes = 7;
+
+    google.protobuf.Timestamp last_updated = 9;
+}
+
+message GameBoard {
+    map<uint32, Intersection> intersections = 1;
+    map<uint32, Tile> tiles = 2;
+    map<uint32, Edge> edges = 3;
+}
+
+enum Player {
+    RED = 0;
+    GREEN = 1;
+    BLUE = 2;
+}
+
+message PlayerProfile {
+    map<int32, int32> resources = 1;
+    int32 winningPoints = 2;
+    int32 settlements = 3;
+    int32 roads = 4;
+
+    google.protobuf.Timestamp last_updated = 9;
+}
+
+enum GameState {
+    JOINING = 0;
+    RROLL = 1;
+    RTRADE = 2;
+    RDEV = 3;
+    BROLL = 4;
+    BTRADE = 5;
+    BDEV = 6;
+    GROLL = 7;
+    GTRADE = 8;
+    GDEV = 9;
+
+    RWON = 10;
+    BWON = 11;
+    GWON = 12;
+}
+
+message GameData{
+    GameBoard board = 1;
+    map<int32, PlayerProfile> profiles = 2;
+    GameState state = 3;
+
+    map<int32, bytes> identityMap = 4;
+
+    google.protobuf.Timestamp last_updated = 9;
+}

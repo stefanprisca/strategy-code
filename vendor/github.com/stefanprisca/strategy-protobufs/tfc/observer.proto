@@ -1,0 +1,16 @@
+syntax="proto3";
+package tfc;
+
+import "gamedata.proto";
+import "gamecontract.proto";
+
+import "google/protobuf/timestamp.proto";
+
+message TrxCompletedArgs {
+    GameContractTrxArgs completedTrxArgs = 1;
+    uint32 lastTrxId = 2;
+    GameState state = 3;
+
+    google.protobuf.Timestamp last_updated = 9;
+    uint32 observerID = 10;
+}

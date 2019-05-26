@@ -1,0 +1,63 @@
+// Copyright 2019 Stefan Prisca
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+
+// 	http://www.apache.org/licenses/LICENSE-2.0
+
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax="proto3";
+package tictactoe;
+
+import "google/protobuf/timestamp.proto";
+
+enum Mark {
+    X = 0;
+    O = 1;
+    E = 2;
+}
+
+message TttContract{
+    
+    enum State {
+        XTURN = 0;
+        OTURN = 1;
+        XWON = 2;
+        OWON = 3;
+        TIE = 4;
+    }
+
+    repeated Mark positions = 1;
+    State state = 2;
+    string x_player = 3;
+    string o_player = 4;
+
+    google.protobuf.Timestamp last_updated = 9;
+}
+
+message InitTrxArgs {
+    Mark player1_mark = 1;
+    Mark player2_mark = 2;
+}
+
+enum TrxType{
+    MOVE = 0;
+}
+
+message TrxArgs{
+    TrxType type = 1;
+    MoveTrxPayload movePayload = 2;
+    
+    google.protobuf.Timestamp last_updated = 9;
+}
+
+message MoveTrxPayload {
+    int32 position = 1;
+    Mark mark = 2;
+}

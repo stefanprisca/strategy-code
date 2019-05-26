@@ -1,0 +1,38 @@
+syntax="proto3";
+package tfc;
+
+import "google/protobuf/timestamp.proto";
+import "gamedata.proto";
+import "gamecontract.proto";
+import "observer.proto";
+
+enum AllianceState {
+    ACTIVE = 0;
+    COMPLETED = 1;
+    FAILED = 2;
+}
+
+message AllianceData {
+    repeated GameContractTrxArgs terms = 1;
+    int32 lifespan = 2;
+    GameState startGameState = 3;
+
+    AllianceState state = 4;
+    repeated Player allies = 5;
+
+    google.protobuf.Timestamp last_updated = 9;
+    uint32 contractID = 10;
+}
+
+enum AllianceTrxType {
+    INIT = 0;
+    INVOKE = 1;
+}
+
+message AllianceTrxArgs {
+    AllianceTrxType type = 1;
+    AllianceData initPayload = 2;
+    TrxCompletedArgs invokePayload = 3;
+
+    google.protobuf.Timestamp last_updated = 9;
+}
