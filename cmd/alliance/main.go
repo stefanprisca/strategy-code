@@ -44,13 +44,13 @@ func (gc *AllianceChaincode) Invoke(APIstub shim.ChaincodeStubInterface) pb.Resp
 
 	case tfcPb.AllianceTrxType_INIT:
 		if !canReadPrivate(APIstub, trxArgs.CollectionID, trxArgs.InitPayload.ContractID) {
-			return shim.Success([]byte("It cannot read from the private collection. It cannot endorse. It exits..."))
+			return shim.Success(nil)
 		}
 		return alli.HandleInit(APIstub)
 
 	case tfcPb.AllianceTrxType_INVOKE:
 		if !canReadPrivate(APIstub, trxArgs.CollectionID, trxArgs.InvokePayload.ObserverID) {
-			return shim.Success([]byte("It cannot read from the private collection. It cannot endorse. It exits..."))
+			return shim.Success(nil)
 		}
 		return alli.HandleInvoke(APIstub)
 	}
