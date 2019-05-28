@@ -43,28 +43,28 @@ func (gc *AllianceChaincode) Invoke(APIstub shim.ChaincodeStubInterface) pb.Resp
 	switch fcn {
 
 	case tfcPb.AllianceTrxType_INIT:
-		if !canReadPrivate(APIstub, trxArgs.CollectionID, trxArgs.InitPayload.ContractID) {
-			return shim.Success(nil)
-		}
+		// if !canReadPrivate(APIstub, trxArgs.CollectionID, trxArgs.InitPayload.ContractID) {
+		// 	return shim.Success(nil)
+		// }
 		return alli.HandleInit(APIstub)
 
 	case tfcPb.AllianceTrxType_INVOKE:
-		if !canReadPrivate(APIstub, trxArgs.CollectionID, trxArgs.InvokePayload.ObserverID) {
-			return shim.Success(nil)
-		}
+		// if !canReadPrivate(APIstub, trxArgs.CollectionID, trxArgs.InvokePayload.ObserverID) {
+		// 	return shim.Success(nil)
+		// }
 		return alli.HandleInvoke(APIstub)
 	}
 
 	return shim.Error("unkown transaction type")
 }
 
-func canReadPrivate(APIstub shim.ChaincodeStubInterface, collectionID string, alliUUID uint32) bool {
+// func canReadPrivate(APIstub shim.ChaincodeStubInterface, collectionID string, alliUUID uint32) bool {
 
-	alliName := fmt.Sprintf("alliance%v", alliUUID)
-	_, err := APIstub.GetPrivateData(collectionID, alliName)
-	log.Printf("Tested if it can read private data %v: %v", collectionID, err)
-	return err != nil
-}
+// 	alliName := fmt.Sprintf("alliance%v", alliUUID)
+// 	_, err := APIstub.PutPrivateData(collectionID, "dump")
+// 	log.Printf("Tested if it can read private data %v: %v", collectionID, err)
+// 	return err != nil
+// }
 
 // The main function is only relevant in unit test mode. Only included here for completeness.
 func main() {
