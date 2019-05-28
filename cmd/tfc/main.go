@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
@@ -19,8 +18,7 @@ func (gc *GameContract) Init(APIstub shim.ChaincodeStubInterface) pb.Response {
 
 func (gc *GameContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 	result := tfc.HandleInvoke(APIstub)
-
-	log.Printf("Saved state on the ledger. \n\n\t ###### State: #####\n %v\n\n", result.Payload)
+	// log.Printf("Saved state on the ledger. \n\n\t ###### State: #####\n %v\n\n", result.Payload)
 	return result
 }
 

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"hash/crc32"
 	"log"
 	"regexp"
 
@@ -92,13 +93,16 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 			"could not retrieve transaction creator: %s", err))
 	}
 
+	creatorCS := crc32.ChecksumIEEE(creatorSign)
+	creatorCSBytes := []byte(fmt.Sprintf("%d", creatorCS))
+
 	log.Printf("Handling transaction from state %s", gameData.State)
 
 	// Handle transaction logic
 	var newGameData tfcPb.GameData
 	switch trxArgs.Type {
 	case tfcPb.GameTrxType_JOIN:
-		newGameData, err = handleJoin(APIstub, creatorSign, *gameData, *trxArgs.JoinTrxPayload)
+		newGameData, err = handleJoin(APIstub, creatorCSBytes, *gameData, *trxArgs.JoinTrxPayload)
 	case tfcPb.GameTrxType_ROLL:
 		// TODO
 		log.Println("ROLL is not yet implemented.")
@@ -107,9 +111,9 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 		log.Println("NEXT trx. Nothing to do here")
 		newGameData = *gameData
 	case tfcPb.GameTrxType_TRADE:
-		newGameData, err = handleTrade(APIstub, creatorSign, *gameData, *trxArgs.TradeTrxPayload)
+		newGameData, err = handleTrade(APIstub, creatorCSBytes, *gameData, *trxArgs.TradeTrxPayload)
 	case tfcPb.GameTrxType_DEV:
-		newGameData, err = handleDev(APIstub, creatorSign, *gameData, *trxArgs.BuildTrxPayload)
+		newGameData, err = handleDev(APIstub, creatorCSBytes, *gameData, *trxArgs.BuildTrxPayload)
 	default:
 		return shim.Error(fmt.Sprint("Unkown transaction type <>"))
 	}
@@ -132,7 +136,7 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 		return shim.Error(fmt.Sprintf("could not marshal game data: %s", err))
 	}
 	APIstub.PutState(CONTRACT_STATE_KEY, protoData)
-	log.Printf("Saved state on the ledger. \n\n\t ###### State: #####\n %v\n\n", protoData)
+	// log.Printf("Saved state on the ledger. \n\n\t ###### State: #####\n %v\n\n", protoData)
 	return shim.Success(protoData)
 
 }

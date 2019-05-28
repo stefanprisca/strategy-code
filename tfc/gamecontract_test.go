@@ -2,6 +2,7 @@ package tfc
 
 import (
 	"fmt"
+	"hash/crc32"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -105,7 +106,9 @@ func TestRGBJoinGame(t *testing.T) {
 		"unexpected state after one player joined")
 
 	redID := GetPlayerId(tfcPb.Player_RED)
-	expectedSign := playerSignedProposals[tfcPb.Player_RED].Signature
+	sign := playerSignedProposals[tfcPb.Player_RED].Signature
+	signCs := crc32.ChecksumIEEE(sign)
+	expectedSign := []byte(fmt.Sprintf("%d", signCs))
 	actualSign := gameData.IdentityMap[redID]
 	require.Equal(t, expectedSign, actualSign)
 }
