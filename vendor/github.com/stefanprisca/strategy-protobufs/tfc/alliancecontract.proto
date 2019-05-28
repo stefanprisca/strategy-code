@@ -18,7 +18,6 @@ message AllianceData {
     GameState startGameState = 3;
 
     AllianceState state = 4;
-    repeated Player allies = 5;
 
     google.protobuf.Timestamp last_updated = 9;
     uint32 contractID = 10;
@@ -34,7 +33,8 @@ message AllianceTrxArgs {
     AllianceData initPayload = 2;
     TrxCompletedArgs invokePayload = 3;
 
-    repeated string orgIDs = 4;
+    repeated Player allies = 4;
+    string collectionID = 5;
 
     google.protobuf.Timestamp last_updated = 9;
 }

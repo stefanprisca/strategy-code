@@ -138,7 +138,7 @@ github.com/spf13/jwalterweatherman
 github.com/spf13/pflag
 # github.com/spf13/viper v1.4.0
 github.com/spf13/viper
-# github.com/stefanprisca/strategy-protobufs v0.0.0-20190528094426-36df2af54f5b
+# github.com/stefanprisca/strategy-protobufs v0.0.0-20190528122945-57685acb6663
 github.com/stefanprisca/strategy-protobufs/tfc
 # github.com/stretchr/testify v1.3.0
 github.com/stretchr/testify/require
