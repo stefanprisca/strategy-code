@@ -59,8 +59,8 @@ func (gc *AllianceChaincode) Invoke(APIstub shim.ChaincodeStubInterface) pb.Resp
 
 func isCreatorAlly(APIstub shim.ChaincodeStubInterface, trxArgs *tfcPb.AllianceTrxArgs) (bool, error) {
 
-	ccName := APIstub.GetChannelID()
-	r := APIstub.InvokeChaincode(ccName, [][]byte{[]byte("query")}, ccName)
+	chanName := APIstub.GetChannelID()
+	r := APIstub.InvokeChaincode("tfc", [][]byte{[]byte("query")}, chanName)
 	if r.Status != shim.OK {
 		return false, fmt.Errorf("could not get the game data:%s", r.Message)
 	}
