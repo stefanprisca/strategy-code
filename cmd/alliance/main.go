@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -36,49 +37,53 @@ func (gc *AllianceChaincode) Invoke(APIstub shim.ChaincodeStubInterface) pb.Resp
 	}
 
 	fcn := trxArgs.Type
+	collection, err := getCollection(trxArgs.OrgIDs)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
 	switch fcn {
 	case tfcPb.AllianceTrxType_INIT:
-		collection, err := getCollection(trxArgs.InitPayload.Allies)
-		if err != nil {
-			return shim.Error(err.Error())
-		}
 		return alli.HandleInit(APIstub, collection)
 	case tfcPb.AllianceTrxType_INVOKE:
-		collection, err := getCollection(trxArgs.InitPayload.Allies)
-		if err != nil {
-			return shim.Error(err.Error())
-		}
-
 		return alli.HandleInvoke(APIstub, collection)
 	}
 
 	return shim.Error("unkown transaction type")
 }
 
-var RGColRegex = regexp.MustCompile(fmt.Sprintf("%v%v|%v%v",
-	tfcPb.Player_RED, tfcPb.Player_GREEN, tfcPb.Player_GREEN, tfcPb.Player_RED))
-
-var GBColRegex = regexp.MustCompile(fmt.Sprintf("%v%v|%v%v",
-	tfcPb.Player_BLUE, tfcPb.Player_GREEN, tfcPb.Player_GREEN, tfcPb.Player_BLUE))
-
-var RBColRegex = regexp.MustCompile(fmt.Sprintf("%v%v|%v%v",
-	tfcPb.Player_RED, tfcPb.Player_BLUE, tfcPb.Player_BLUE, tfcPb.Player_RED))
-
-func colSelectionStr(allies []tfcPb.Player) string {
-	return fmt.Sprintf("%v%v", allies[0], allies[1])
+func colSelectionRegexp(orgIDs []string) *regexp.Regexp {
+	org1ID := strings.ToLower(orgIDs[0])
+	org2ID := strings.ToLower(orgIDs[1])
+	return regexp.MustCompile(fmt.Sprintf("al(%v%v|%v%v)",
+		org1ID, org2ID, org2ID, org1ID))
 }
 
-func getCollection(allies []tfcPb.Player) (string, error) {
-	selStr := colSelectionStr(allies)
+func getCollection(orgIDs []string) (string, error) {
+	selRegexp := colSelectionRegexp(orgIDs)
 	switch {
-	case RGColRegex.MatchString(selStr):
-		return "redgreen", nil
-	case GBColRegex.MatchString(selStr):
-		return "greenblue", nil
-	case RBColRegex.MatchString(selStr):
-		return "redblue", nil
+	case selRegexp.MatchString("alplayer1player2"):
+		return "alplayer1player2", nil
+	case selRegexp.MatchString("alplayer1player3"):
+		return "alplayer1player2", nil
+	case selRegexp.MatchString("alplayer1player4"):
+		return "alplayer1player2", nil
+	case selRegexp.MatchString("alplayer1player5"):
+		return "alplayer1player2", nil
+	case selRegexp.MatchString("alplayer2player3"):
+		return "alplayer1player2", nil
+	case selRegexp.MatchString("alplayer2player4"):
+		return "alplayer1player2", nil
+	case selRegexp.MatchString("alplayer2player5"):
+		return "alplayer1player2", nil
+	case selRegexp.MatchString("alplayer3player4"):
+		return "alplayer1player2", nil
+	case selRegexp.MatchString("alplayer3player5"):
+		return "alplayer1player2", nil
+	case selRegexp.MatchString("alplayer4player5"):
+		return "alplayer1player2", nil
 	}
-	return "", fmt.Errorf("unkown collection for allies %v", allies)
+	return "", fmt.Errorf("unkown collection for orgs %v", orgIDs)
 
 }
 
