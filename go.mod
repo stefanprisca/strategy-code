@@ -12,7 +12,7 @@ require (
 	github.com/miekg/pkcs11 v1.0.2 // indirect
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7 // indirect
 	github.com/spf13/viper v1.4.0 // indirect
-	github.com/stefanprisca/strategy-protobufs v0.0.0-20190528094426-36df2af54f5b
+	github.com/stefanprisca/strategy-protobufs v0.0.0-20190528122945-57685acb6663
 	github.com/stretchr/testify v1.3.0
 	github.com/sykesm/zap-logfmt v0.0.2 // indirect
 	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f // indirect

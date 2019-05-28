@@ -24,11 +24,11 @@ type MockContract struct {
 }
 
 func (gc *MockContract) Init(APIstub shim.ChaincodeStubInterface) pb.Response {
-	return HandleInit(APIstub, AllianceCollection)
+	return HandleInit(APIstub)
 }
 
 func (gc *MockContract) Invoke(APIstub shim.ChaincodeStubInterface) pb.Response {
-	return HandleInvoke(APIstub, AllianceCollection)
+	return HandleInvoke(APIstub)
 }
 
 func initContract(t *testing.T, cUUID uint32, terms ...*tfcPb.GameContractTrxArgs) *shim.MockStub {
@@ -136,7 +136,8 @@ func (ab *initArgsBuilder) AddTerm(term *tfcPb.GameContractTrxArgs) *initArgsBui
 func (ab *initArgsBuilder) InitMock(stub *shim.MockStub) error {
 
 	trxArgs := &tfcPb.AllianceTrxArgs{
-		InitPayload: ab.allianceData,
+		InitPayload:  ab.allianceData,
+		CollectionID: AllianceCollection,
 	}
 	protoData, err := proto.Marshal(trxArgs)
 	if err != nil {
@@ -174,6 +175,7 @@ func (tcb *trxCompletedBuilder) MockInvoke(stub *shim.MockStub, observerID uint3
 
 	alliTrxArgs := &tfcPb.AllianceTrxArgs{
 		InvokePayload: tcb.trxCompletedArgs,
+		CollectionID:  AllianceCollection,
 	}
 
 	protoData, err := proto.Marshal(alliTrxArgs)

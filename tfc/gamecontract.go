@@ -64,6 +64,15 @@ func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
 
 func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 
+	fcn := string(APIstub.GetArgs()[0])
+	if fcn == "query" {
+		protoData, err := APIstub.GetState(CONTRACT_STATE_KEY)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		return shim.Success(protoData)
+	}
+
 	protoArgs := APIstub.GetArgs()[1]
 	trxArgs := &tfcPb.GameContractTrxArgs{}
 	err := proto.Unmarshal(protoArgs, trxArgs)

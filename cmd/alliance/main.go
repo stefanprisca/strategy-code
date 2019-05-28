@@ -1,9 +1,8 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
-	"regexp"
-	"strings"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -36,55 +35,54 @@ func (gc *AllianceChaincode) Invoke(APIstub shim.ChaincodeStubInterface) pb.Resp
 			fmt.Sprintf("could not unmarshal arguments proto message <%v>: %s", protoArgs, err))
 	}
 
-	fcn := trxArgs.Type
-	collection, err := getCollection(trxArgs.OrgIDs)
+	creatorIsAlly, err := isCreatorAlly(APIstub, trxArgs)
 	if err != nil {
-		return shim.Error(err.Error())
+		return shim.Error(
+			fmt.Sprintf("could not determine if creator is ally: %s", err))
 	}
+
+	if !creatorIsAlly {
+		return shim.Success([]byte("Creator is not ally, cannot endorse..."))
+	}
+
+	fcn := trxArgs.Type
 
 	switch fcn {
 	case tfcPb.AllianceTrxType_INIT:
-		return alli.HandleInit(APIstub, collection)
+		return alli.HandleInit(APIstub)
 	case tfcPb.AllianceTrxType_INVOKE:
-		return alli.HandleInvoke(APIstub, collection)
+		return alli.HandleInvoke(APIstub)
 	}
 
 	return shim.Error("unkown transaction type")
 }
 
-func colSelectionRegexp(orgIDs []string) *regexp.Regexp {
-	org1ID := strings.ToLower(orgIDs[0])
-	org2ID := strings.ToLower(orgIDs[1])
-	return regexp.MustCompile(fmt.Sprintf("al(%v%v|%v%v)",
-		org1ID, org2ID, org2ID, org1ID))
-}
+func isCreatorAlly(APIstub shim.ChaincodeStubInterface, trxArgs *tfcPb.AllianceTrxArgs) (bool, error) {
 
-func getCollection(orgIDs []string) (string, error) {
-	selRegexp := colSelectionRegexp(orgIDs)
-	switch {
-	case selRegexp.MatchString("alplayer1player2"):
-		return "alplayer1player2", nil
-	case selRegexp.MatchString("alplayer1player3"):
-		return "alplayer1player2", nil
-	case selRegexp.MatchString("alplayer1player4"):
-		return "alplayer1player2", nil
-	case selRegexp.MatchString("alplayer1player5"):
-		return "alplayer1player2", nil
-	case selRegexp.MatchString("alplayer2player3"):
-		return "alplayer1player2", nil
-	case selRegexp.MatchString("alplayer2player4"):
-		return "alplayer1player2", nil
-	case selRegexp.MatchString("alplayer2player5"):
-		return "alplayer1player2", nil
-	case selRegexp.MatchString("alplayer3player4"):
-		return "alplayer1player2", nil
-	case selRegexp.MatchString("alplayer3player5"):
-		return "alplayer1player2", nil
-	case selRegexp.MatchString("alplayer4player5"):
-		return "alplayer1player2", nil
+	ccName := APIstub.GetChannelID()
+	r := APIstub.InvokeChaincode(ccName, [][]byte{[]byte("query")}, ccName)
+	if r.Status != shim.OK {
+		return false, fmt.Errorf("could not get the game data:%s", r.Message)
 	}
-	return "", fmt.Errorf("unkown collection for orgs %v", orgIDs)
 
+	gameData := &tfcPb.GameData{}
+	err := proto.Unmarshal(r.Payload, gameData)
+	if err != nil {
+		return false, fmt.Errorf("could not unmarshal game data: %s", err)
+	}
+
+	creatorSign, err := APIstub.GetCreator()
+	if err != nil {
+		return false, fmt.Errorf("could not obtain creator: %s", err)
+	}
+
+	for _, a := range trxArgs.Allies {
+		if bytes.Equal(gameData.IdentityMap[int32(a)], creatorSign) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // The main function is only relevant in unit test mode. Only included here for completeness.

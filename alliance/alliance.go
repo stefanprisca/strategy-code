@@ -14,7 +14,7 @@ func getAllianceLedgerKey(cID uint32) string {
 	return fmt.Sprintf("alliance%v", cID)
 }
 
-func HandleInit(APIstub shim.ChaincodeStubInterface, collection string) pb.Response {
+func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
 	log.Println(APIstub.GetArgs())
 	protoArgs := APIstub.GetArgs()[1]
 	trxArgs := &tfcPb.AllianceTrxArgs{}
@@ -40,6 +40,7 @@ func HandleInit(APIstub shim.ChaincodeStubInterface, collection string) pb.Respo
 	ledgerKey := getAllianceLedgerKey(allianceContractID)
 	// Cannot put private data in the init...
 	log.Println("Putting state on ledger....")
+	collection := trxArgs.CollectionID
 	err = APIstub.PutPrivateData(collection, ledgerKey, protoData)
 	if err != nil {
 		return shim.Error(
@@ -49,7 +50,7 @@ func HandleInit(APIstub shim.ChaincodeStubInterface, collection string) pb.Respo
 	return shim.Success(protoData)
 }
 
-func HandleInvoke(APIstub shim.ChaincodeStubInterface, collection string) pb.Response {
+func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 
 	protoArgs := APIstub.GetArgs()[1]
 	alliTrxArgs := &tfcPb.AllianceTrxArgs{}
@@ -64,6 +65,7 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface, collection string) pb.Res
 	trxArgs := alliTrxArgs.InvokePayload
 	allianceContractID := trxArgs.ObserverID
 	ledgerKey := getAllianceLedgerKey(allianceContractID)
+	collection := alliTrxArgs.CollectionID
 
 	allianceData, err := getAllianceLedgerData(APIstub, collection, ledgerKey)
 	if err != nil {
