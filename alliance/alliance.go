@@ -46,6 +46,7 @@ func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
 		return shim.Error(
 			fmt.Sprintf("could not save the state on the ledger: %s", err))
 	}
+	log.Printf("Saved state on the ledger. \n\n\t ###### State: #####\n %v\n\n", protoData)
 
 	return shim.Success(protoData)
 }
@@ -86,7 +87,13 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 	}
 
 	log.Println("Finished invoke..putting state on the ledger")
-	APIstub.PutPrivateData(collection, ledgerKey, protoData)
+	err = APIstub.PutPrivateData(collection, ledgerKey, protoData)
+	if err != nil {
+		return shim.Error(
+			fmt.Sprintf("could not save the state on the ledger: %s", err))
+	}
+
+	log.Printf("Saved state on the ledger. \n\n\t ###### State: #####\n %v\n\n", protoData)
 	return shim.Success(protoData)
 
 }

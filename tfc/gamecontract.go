@@ -132,7 +132,7 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 		return shim.Error(fmt.Sprintf("could not marshal game data: %s", err))
 	}
 	APIstub.PutState(CONTRACT_STATE_KEY, protoData)
-
+	log.Printf("Saved state on the ledger. \n\n\t ###### State: #####\n %v\n\n", protoData)
 	return shim.Success(protoData)
 
 }
