@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"log"
 
@@ -36,63 +35,35 @@ func (gc *AllianceChaincode) Invoke(APIstub shim.ChaincodeStubInterface) pb.Resp
 			fmt.Sprintf("could not unmarshal arguments proto message <%v>: %s", protoArgs, err))
 	}
 
+	// Test if it can access the collection
+
 	log.Printf("Processing alliance transaction %v", trxArgs)
-
-	creatorIsAlly, err := isCreatorAlly(APIstub, trxArgs)
-	if err != nil {
-		return shim.Error(
-			fmt.Sprintf("could not determine if creator is ally: %s", err))
-	}
-
-	if !creatorIsAlly {
-		return shim.Success([]byte("Creator is not ally, cannot endorse..."))
-	}
-
-	log.Println("Alliance creator is ally, continuing...")
-
 	fcn := trxArgs.Type
 
 	switch fcn {
+
 	case tfcPb.AllianceTrxType_INIT:
+		if !canReadPrivate(APIstub, trxArgs.CollectionID, trxArgs.InitPayload.ContractID) {
+			return shim.Success([]byte("It cannot read from the private collection. It cannot endorse. It exits..."))
+		}
 		return alli.HandleInit(APIstub)
+
 	case tfcPb.AllianceTrxType_INVOKE:
+		if !canReadPrivate(APIstub, trxArgs.CollectionID, trxArgs.InvokePayload.ObserverID) {
+			return shim.Success([]byte("It cannot read from the private collection. It cannot endorse. It exits..."))
+		}
 		return alli.HandleInvoke(APIstub)
 	}
 
 	return shim.Error("unkown transaction type")
 }
 
-func isCreatorAlly(APIstub shim.ChaincodeStubInterface, trxArgs *tfcPb.AllianceTrxArgs) (bool, error) {
+func canReadPrivate(APIstub shim.ChaincodeStubInterface, collectionID string, alliUUID uint32) bool {
 
-	log.Println("Checking if the creator is ally...")
-	chanName := APIstub.GetChannelID()
-	r := APIstub.InvokeChaincode("tfc", [][]byte{[]byte("query")}, chanName)
-	if r.Status != shim.OK {
-		return false, fmt.Errorf("could not get the game data:%s", r.Message)
-	}
-
-	gameData := &tfcPb.GameData{}
-	err := proto.Unmarshal(r.Payload, gameData)
-	if err != nil {
-		return false, fmt.Errorf("could not unmarshal game data: %s", err)
-	}
-
-	log.Println("Invoked tfcCC and got the game data...")
-	creatorSign, err := APIstub.GetCreator()
-	if err != nil {
-		return false, fmt.Errorf("could not obtain creator: %s", err)
-	}
-
-	for _, a := range trxArgs.Allies {
-		if bytes.Equal(gameData.IdentityMap[int32(a)], creatorSign) {
-
-			log.Printf("Found matching ally %v", a)
-			return true, nil
-		}
-	}
-
-	log.Printf("Could not find a matching ally")
-	return false, nil
+	alliName := fmt.Sprintf("alliance%v", alliUUID)
+	_, err := APIstub.GetPrivateData(collectionID, alliName)
+	log.Printf("Tested if it can read private data %v: %v", collectionID, err)
+	return err != nil
 }
 
 // The main function is only relevant in unit test mode. Only included here for completeness.
