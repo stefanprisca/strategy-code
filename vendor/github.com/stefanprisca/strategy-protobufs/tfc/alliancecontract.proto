@@ -34,5 +34,7 @@ message AllianceTrxArgs {
     AllianceData initPayload = 2;
     TrxCompletedArgs invokePayload = 3;
 
+    repeated string orgIDs = 4;
+
     google.protobuf.Timestamp last_updated = 9;
 }
