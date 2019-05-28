@@ -15,7 +15,7 @@ func getAllianceLedgerKey(cID uint32) string {
 }
 
 func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
-	log.Println(APIstub.GetArgs())
+	log.Println("Hadling alliance init")
 	protoArgs := APIstub.GetArgs()[1]
 	trxArgs := &tfcPb.AllianceTrxArgs{}
 	err := proto.Unmarshal(protoArgs, trxArgs)
@@ -52,6 +52,7 @@ func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
 
 func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 
+	log.Println("Hadling alliance invoke")
 	protoArgs := APIstub.GetArgs()[1]
 	alliTrxArgs := &tfcPb.AllianceTrxArgs{}
 	err := proto.Unmarshal(protoArgs, alliTrxArgs)
@@ -84,6 +85,7 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 			fmt.Sprintf("could not marshal the alliance data <%v>: %s", newAllianceData, err))
 	}
 
+	log.Println("Finished invoke..putting state on the ledger")
 	APIstub.PutPrivateData(collection, ledgerKey, protoData)
 	return shim.Success(protoData)
 

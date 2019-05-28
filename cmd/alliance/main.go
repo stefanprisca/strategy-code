@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"log"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -35,6 +36,8 @@ func (gc *AllianceChaincode) Invoke(APIstub shim.ChaincodeStubInterface) pb.Resp
 			fmt.Sprintf("could not unmarshal arguments proto message <%v>: %s", protoArgs, err))
 	}
 
+	log.Printf("Processing alliance transaction %v", trxArgs)
+
 	creatorIsAlly, err := isCreatorAlly(APIstub, trxArgs)
 	if err != nil {
 		return shim.Error(
@@ -44,6 +47,8 @@ func (gc *AllianceChaincode) Invoke(APIstub shim.ChaincodeStubInterface) pb.Resp
 	if !creatorIsAlly {
 		return shim.Success([]byte("Creator is not ally, cannot endorse..."))
 	}
+
+	log.Println("Alliance creator is ally, continuing...")
 
 	fcn := trxArgs.Type
 
@@ -59,6 +64,7 @@ func (gc *AllianceChaincode) Invoke(APIstub shim.ChaincodeStubInterface) pb.Resp
 
 func isCreatorAlly(APIstub shim.ChaincodeStubInterface, trxArgs *tfcPb.AllianceTrxArgs) (bool, error) {
 
+	log.Println("Checking if the creator is ally...")
 	chanName := APIstub.GetChannelID()
 	r := APIstub.InvokeChaincode("tfc", [][]byte{[]byte("query")}, chanName)
 	if r.Status != shim.OK {
@@ -71,6 +77,7 @@ func isCreatorAlly(APIstub shim.ChaincodeStubInterface, trxArgs *tfcPb.AllianceT
 		return false, fmt.Errorf("could not unmarshal game data: %s", err)
 	}
 
+	log.Println("Invoked tfcCC and got the game data...")
 	creatorSign, err := APIstub.GetCreator()
 	if err != nil {
 		return false, fmt.Errorf("could not obtain creator: %s", err)
@@ -78,10 +85,13 @@ func isCreatorAlly(APIstub shim.ChaincodeStubInterface, trxArgs *tfcPb.AllianceT
 
 	for _, a := range trxArgs.Allies {
 		if bytes.Equal(gameData.IdentityMap[int32(a)], creatorSign) {
+
+			log.Printf("Found matching ally %v", a)
 			return true, nil
 		}
 	}
 
+	log.Printf("Could not find a matching ally")
 	return false, nil
 }
 
