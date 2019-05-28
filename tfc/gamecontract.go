@@ -17,6 +17,7 @@ package tfc
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"hash/crc32"
 	"log"
@@ -53,7 +54,7 @@ func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
 		IdentityMap: identityMap,
 	}
 
-	protoData, err := proto.Marshal(gameData)
+	protoData, err := json.Marshal(gameData)
 	if err != nil {
 		return shim.Error(fmt.Sprintf("could not marshal game data: %s", err))
 	}
@@ -131,12 +132,12 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 	newGameData.State = newGameState
 	log.Printf("Finished processing transaction, with state %v", newGameData.State)
 	// Put the state back on the ledger and return a result
-	protoData, err := proto.Marshal(&newGameData)
+	protoData, err := json.Marshal(&newGameData)
 	if err != nil {
 		return shim.Error(fmt.Sprintf("could not marshal game data: %s", err))
 	}
 	APIstub.PutState(CONTRACT_STATE_KEY, protoData)
-	// log.Printf("Saved state on the ledger. \n\n\t ###### State: #####\n %v\n\n", protoData)
+	log.Printf("Saved state on the ledger. \n\n\t ###### State: #####\n %v\n\n", protoData)
 	return shim.Success(protoData)
 
 }
@@ -244,7 +245,7 @@ func getLedgerData(APIstub shim.ChaincodeStubInterface) (*tfcPb.GameData, error)
 	}
 
 	gameData := &tfcPb.GameData{}
-	err = proto.Unmarshal(protoData, gameData)
+	err = json.Unmarshal(protoData, gameData)
 	if err != nil {
 		return nil, fmt.Errorf("Could not unmarshal the proto contract. Error: %s", err.Error())
 	}
