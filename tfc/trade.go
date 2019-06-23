@@ -11,7 +11,7 @@ import (
 func handleTrade(APIstub shim.ChaincodeStubInterface, creatorSign []byte,
 	gameData tfcPb.GameData, payload tfcPb.TradeTrxPayload) (tfcPb.GameData, error) {
 
-	err := assertTradePrecond(gameData, creatorSign, payload)
+	err := assertTradePrecond(APIstub, gameData, creatorSign, payload)
 	if err != nil {
 		return gameData, fmt.Errorf(
 			"trade preconditions not met: %s", err)
@@ -40,9 +40,10 @@ var tradeStateValidationRegexp = regexp.MustCompile(
 		fmt.Sprintf("|%vGTRADE", tfcPb.Player_GREEN))
 
 // TODO: implement this
-func assertTradePrecond(gameData tfcPb.GameData, creatorSign []byte, payload tfcPb.TradeTrxPayload) error {
+func assertTradePrecond(APIstub shim.ChaincodeStubInterface,
+	gameData tfcPb.GameData, creatorSign []byte, payload tfcPb.TradeTrxPayload) error {
 	state := gameData.State
-	creator, err := getCreator(gameData, creatorSign)
+	creator, err := getCreator(APIstub, creatorSign)
 	if err != nil || creator != payload.Source {
 		return fmt.Errorf("invalid trx creator, or creator not identified (<0): expected %v, got %v",
 			creator, payload.Source)

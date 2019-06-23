@@ -11,7 +11,7 @@ import (
 func handleDev(APIstub shim.ChaincodeStubInterface, creatorSign []byte,
 	gameData tfcPb.GameData, payload tfcPb.BuildTrxPayload) (tfcPb.GameData, error) {
 
-	err := assertDevelopmentPrecond(gameData, creatorSign, payload)
+	err := assertDevelopmentPrecond(APIstub, gameData, creatorSign, payload)
 	if err != nil {
 		return gameData, fmt.Errorf(
 			"development preconditions not met: %s", err)
@@ -33,7 +33,8 @@ var devStateValidationRegexp = regexp.MustCompile(
 		fmt.Sprintf("|%vGDEV", tfcPb.Player_GREEN))
 
 // TODO: implement this
-func assertDevelopmentPrecond(gameData tfcPb.GameData, creatorSign []byte, payload tfcPb.BuildTrxPayload) error {
+func assertDevelopmentPrecond(APIstub shim.ChaincodeStubInterface,
+	gameData tfcPb.GameData, creatorSign []byte, payload tfcPb.BuildTrxPayload) error {
 
 	/*
 		1) correct state
@@ -42,7 +43,7 @@ func assertDevelopmentPrecond(gameData tfcPb.GameData, creatorSign []byte, paylo
 	*/
 
 	state := gameData.State
-	creator, err := getCreator(gameData, creatorSign)
+	creator, err := getCreator(APIstub, creatorSign)
 	if err != nil {
 		return err
 	}

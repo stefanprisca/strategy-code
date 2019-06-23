@@ -59,8 +59,11 @@ func TestInitGameContract(t *testing.T) {
 	require.Equal(t, gameData.State, tfcPb.GameState_JOINING,
 		"expected game to be in state %v", tfcPb.GameState_JOINING)
 
-	require.Contains(t, gameData.IdentityMap, ContractID)
-	actualUUID := string(gameData.IdentityMap[ContractID])
+	idMap, err := getIdentityMap(stub)
+	require.NoError(t, err)
+
+	require.Contains(t, idMap, ContractID)
+	actualUUID := string(idMap[ContractID])
 	require.Equal(t, cUUID, actualUUID)
 
 	// profilesNotNil := gameData.Profiles != nil
@@ -78,13 +81,15 @@ func TestJoinGame(t *testing.T) {
 		invokeSignedMock(stub, pP)
 	require.NoError(t, err)
 
-	gameData, err := getLedgerData(stub)
+	idMap, err := getIdentityMap(stub)
 	require.NoError(t, err)
 	expectedId := GetPlayerId(tfcPb.Player_RED)
-	_, ok := gameData.IdentityMap[expectedId]
+	_, ok := idMap[expectedId]
 	require.True(t, ok,
 		fmt.Sprintf("expected to find player id for %v after join operation.", tfcPb.Player_RED))
 
+	gameData, err := getLedgerData(stub)
+	require.NoError(t, err)
 	require.Equal(t, tfcPb.GameState_JOINING, gameData.State,
 		"unexpected state after one player joined")
 
@@ -109,7 +114,10 @@ func TestRGBJoinGame(t *testing.T) {
 	sign := playerSignedProposals[tfcPb.Player_RED].Signature
 	signCs := crc32.ChecksumIEEE(sign)
 	expectedSign := []byte(fmt.Sprintf("%d", signCs))
-	actualSign := gameData.IdentityMap[redID]
+
+	idMap, err := getIdentityMap(stub)
+	require.NoError(t, err)
+	actualSign := idMap[redID]
 	require.Equal(t, expectedSign, actualSign)
 }
 

@@ -30,6 +30,7 @@ import (
 )
 
 const CONTRACT_STATE_KEY = "contract.tfc.com"
+const IDENTITY_MAP_KEY = "contract.tfc.com.idmap"
 
 var ContractID = int32(binary.LittleEndian.Uint16([]byte(CONTRACT_STATE_KEY)))
 
@@ -48,32 +49,37 @@ func HandleInit(APIstub shim.ChaincodeStubInterface) pb.Response {
 	var contractUUID = []byte(APIstub.GetTxID())
 	identityMap[ContractID] = contractUUID
 
-	gameData := &tfcPb.GameData{
-		Board:       gameBoard,
-		State:       tfcPb.GameState_JOINING,
-		IdentityMap: identityMap,
+	jsonData, err := json.Marshal(identityMap)
+	if err != nil {
+		return shim.Error(fmt.Sprintf("could not marshal game data: %s", err))
 	}
 
-	protoData, err := json.Marshal(gameData)
+	APIstub.PutState(IDENTITY_MAP_KEY, jsonData)
+
+	gameData := &tfcPb.GameData{
+		Board: gameBoard,
+		State: tfcPb.GameState_JOINING,
+	}
+
+	protoData, err := proto.Marshal(gameData)
 	if err != nil {
 		return shim.Error(fmt.Sprintf("could not marshal game data: %s", err))
 	}
 
 	APIstub.PutState(CONTRACT_STATE_KEY, protoData)
-
 	return shim.Success(protoData)
 }
 
 func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 
-	fcn := string(APIstub.GetArgs()[0])
-	if fcn == "query" {
-		protoData, err := APIstub.GetState(CONTRACT_STATE_KEY)
-		if err != nil {
-			return shim.Error(err.Error())
-		}
-		return shim.Success(protoData)
-	}
+	// fcn := string(APIstub.GetArgs()[0])
+	// if fcn == "query" {
+	// 	protoData, err := APIstub.GetState(CONTRACT_STATE_KEY)
+	// 	if err != nil {
+	// 		return shim.Error(err.Error())
+	// 	}
+	// 	return shim.Success(protoData)
+	// }
 
 	protoArgs := APIstub.GetArgs()[1]
 	trxArgs := &tfcPb.GameContractTrxArgs{}
@@ -132,12 +138,12 @@ func HandleInvoke(APIstub shim.ChaincodeStubInterface) pb.Response {
 	newGameData.State = newGameState
 	log.Printf("Finished processing transaction, with state %v", newGameData.State)
 	// Put the state back on the ledger and return a result
-	protoData, err := json.Marshal(&newGameData)
+	protoData, err := proto.Marshal(&newGameData)
 	if err != nil {
 		return shim.Error(fmt.Sprintf("could not marshal game data: %s", err))
 	}
 	APIstub.PutState(CONTRACT_STATE_KEY, protoData)
-	log.Printf("Saved state on the ledger. \n\n\t ###### State: #####\n %v\n\n", protoData)
+	log.Printf("Saved state on the ledger. ")
 	return shim.Success(protoData)
 
 }
@@ -166,7 +172,19 @@ func handleJoin(APIstub shim.ChaincodeStubInterface, creatorSign []byte,
 
 	log.Printf("Joining player %v with sign %v", payload.Player, creatorSign)
 	playerID := GetPlayerId(payload.Player)
-	gameData.IdentityMap[playerID] = creatorSign
+
+	idMap, err := getIdentityMap(APIstub)
+	if err != nil {
+		return gameData, err
+	}
+
+	idMap[playerID] = creatorSign
+	jsonData, err := json.Marshal(idMap)
+	if err != nil {
+		return gameData, fmt.Errorf("could not marshal id map: %s", err)
+	}
+
+	APIstub.PutState(IDENTITY_MAP_KEY, jsonData)
 
 	// If there was no other player that joined until now
 	// the profiles will be nil
@@ -174,6 +192,7 @@ func handleJoin(APIstub shim.ChaincodeStubInterface, creatorSign []byte,
 		gameData.Profiles = make(map[int32]*tfcPb.PlayerProfile)
 	}
 	gameData.Profiles[playerID] = InitPlayerProfile()
+
 	return gameData, nil
 }
 
@@ -245,19 +264,39 @@ func getLedgerData(APIstub shim.ChaincodeStubInterface) (*tfcPb.GameData, error)
 	}
 
 	gameData := &tfcPb.GameData{}
-	err = json.Unmarshal(protoData, gameData)
+	err = proto.Unmarshal(protoData, gameData)
 	if err != nil {
 		return nil, fmt.Errorf("Could not unmarshal the proto contract. Error: %s", err.Error())
 	}
 	return gameData, nil
 }
 
+func getIdentityMap(APIstub shim.ChaincodeStubInterface) (map[int32][]byte, error) {
+	jsonData, err := APIstub.GetState(IDENTITY_MAP_KEY)
+	if err != nil {
+		return nil, fmt.Errorf("Could not get the id map from state. Error: %s", err.Error())
+	}
+
+	idMap := make(map[int32][]byte)
+	err = json.Unmarshal(jsonData, &idMap)
+	if err != nil {
+		return nil, fmt.Errorf("Could not unmarshal the id map. Error: %s", err.Error())
+	}
+	return idMap, nil
+}
+
 var playerExists = regexp.MustCompile(fmt.Sprintf("%v|%v|%v",
 	tfcPb.Player_BLUE, tfcPb.Player_GREEN, tfcPb.Player_RED))
 
-func getCreator(gameData tfcPb.GameData, creatorSign []byte) (tfcPb.Player, error) {
+func getCreator(APIstub shim.ChaincodeStubInterface, creatorSign []byte) (tfcPb.Player, error) {
 	srcID := int32(-1)
-	for pID, sign := range gameData.IdentityMap {
+
+	idMap, err := getIdentityMap(APIstub)
+	if err != nil {
+		return 0, err
+	}
+
+	for pID, sign := range idMap {
 		if bytes.Equal(sign, creatorSign) {
 			srcID = pID
 			break
